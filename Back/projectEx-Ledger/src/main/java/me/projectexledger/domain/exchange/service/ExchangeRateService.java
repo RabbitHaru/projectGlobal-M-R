@@ -28,32 +28,37 @@ public class ExchangeRateService {
 
     private static final String REDIS_KEY = "LATEST_RATES";
 
-     // 특정 통화의 현재 환율로 원화 환산 금액 계산
+     // Redis 캐시를 먼저 확인하고, 없으면 DB에서 가장 최신 고시 데이터를 가져옵니다.
+     // 컨트롤러 규격에 맞춰 List<ExchangeRateDto>를 반환하도록 수정했습니다.
 
-    public BigDecimal getConvertedAmount(String curUnit, BigDecimal amount) {
-        // 1. Redis에서 최신 환율 조회 시도
-        // 2. 없을 경우 DB에서 최신 환율 조회
-        ExchangeRate rateEntity = exchangeRateRepository.findFirstByCurUnitOrderByUpdatedAtDesc(curUnit)
-                .orElseThrow(() -> new RuntimeException("해당 통화의 환율 정보가 없습니다."));
-
-        return currencyCalculator.calculateKrwAmount(amount, rateEntity.getRate());
-    }
-
-    @Transactional // DB 저장을 위해 트랜잭션 추가
-    public List<ExchangeRateDto> updateAndCacheRates() {
-        List<ExchangeRateDto> dtos;
-
+    public List<ExchangeRateDto> getLatestRatesFromCacheOrDb() {
+        // 1. Redis 확인
         try {
-            dtos = koreaEximClient.fetchRates();
+            List<ExchangeRateDto> cachedRates = (List<ExchangeRateDto>) redisTemplate.opsForValue().get(REDIS_KEY);
+            if (cachedRates != null && !cachedRates.isEmpty()) {
+                log.info("Returning rates from Redis cache.");
+                return cachedRates;
+            }
         } catch (Exception e) {
-            log.warn("KoreaExim failed, falling back to Frankfurter");
-            dtos = frankfurterClient.fetchRates();
+            log.error("Redis error: {}", e.getMessage());
         }
 
+        // 2. Redis에 없으면 DB에서 조회
+        List<ExchangeRate> entities = exchangeRateRepository.findAllLatestRates();
+
+        // 3. Entity -> DTO 변환
+        List<ExchangeRateDto> dtos = entities.stream()
+                .map(entity -> ExchangeRateDto.builder()
+                        .curUnit(entity.getCurUnit())
+                        .curNm(entity.getCurNm())
+                        .rate(entity.getRate())
+                        .provider(entity.getProvider())
+                        .updatedAt(entity.getUpdatedAt())
+                        .build())
+                .toList();
+
+        // 4. 캐시가 비어있었다면 DB 데이터로 다시 채워줌 (데이터 정합성)
         if (!dtos.isEmpty()) {
-            // 1. DB에 이력 저장
-            saveToDatabase(dtos);
-            // 2. Redis 캐시 갱신
             saveToCache(dtos);
         }
 
@@ -76,7 +81,6 @@ public class ExchangeRateService {
     }
 
     private void saveToCache(List<ExchangeRateDto> rates) {
-        // 실시간 환율은 신선도가 중요하므로 TTL을 1시간으로 설정 (이미지 1 참조)
         redisTemplate.opsForValue().set(REDIS_KEY, rates, Duration.ofHours(1));
     }
 }
