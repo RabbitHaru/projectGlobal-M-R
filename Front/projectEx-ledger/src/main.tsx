@@ -1,6 +1,7 @@
 // src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css'; // Tailwind CSS가 적용된 파일
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,3 +23,4 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     </QueryClientProvider>
   </React.StrictMode>
 );
+
