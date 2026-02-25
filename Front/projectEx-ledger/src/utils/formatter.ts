@@ -57,7 +57,7 @@ export const getCurrencyName = (code: string): string => {
     GBP: "영국 파운드",
     HKD: "홍콩 달러",
     IDR: "인도네시아 루피아",
-    JPY: "일본 옌",
+    JPY: "일본 엔",
     KRW: "한국 원",
     KWD: "쿠웨이트 디나르",
     MYR: "말레이시아 링기트",
