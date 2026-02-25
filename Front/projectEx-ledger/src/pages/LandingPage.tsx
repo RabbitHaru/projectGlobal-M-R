@@ -7,7 +7,7 @@ import { TotalSettlementWidget } from '../components/widgets/TotalSettlementWidg
 import { MiniConverter } from '../components/widgets/MiniConverter';
 
 /**
- * 서비스 메인 랜딩 페이지 (Member B 담당)
+ * 서비스 메인 랜딩 페이지
  */
 export const LandingPage: React.FC = () => {
     const navigate = useNavigate();
