@@ -25,7 +25,7 @@ const FXTicker: React.FC = () => {
 
     return () => eventSource.close();
   }, []);
-.
+
   return (
     <div className="ticker-container">
       <h2 className="text-xl font-bold mb-4">실시간 환율 정보</h2>
