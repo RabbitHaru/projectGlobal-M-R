@@ -1,79 +1,76 @@
-import React from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { isAuthenticated, removeAuthToken } from '../../utils/auth';
-import { ROUTES } from '../../constants/routes';
-import { Button } from '../ui/Button';
+// src/components/layout/CommonLayout.tsx
+import React, { type ReactNode } from 'react';
 
-/**
- * 기본 라우트 레이아웃 (GNB, Footer 등 포함)
- */
-export const CommonLayout: React.FC = () => {
-    const navigate = useNavigate();
-    const isAuth = isAuthenticated();
+interface LayoutProps {
+  children: ReactNode;
+}
 
-    const handleLogout = () => {
-        removeAuthToken();
-        navigate(ROUTES.LOGIN);
-    };
+const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
+  return (
+    <div className="flex flex-col min-h-screen font-sans bg-gray-50 text-slate-900">
+      
+      {/* 1. 상단 내비게이션 바 (Header) */}
+      <header className="sticky top-0 z-50 w-full px-6 py-4 bg-white border-b border-gray-100">
+        <div className="flex items-center justify-between mx-auto max-w-7xl">
+          {/* 로고 영역 */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center w-8 h-8 bg-teal-600 rounded">
+              <span className="text-xl font-bold text-white">E</span>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tighter text-slate-800">
+              Ex-Ledger
+            </h1>
+          </div>
 
-    return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* 전역 네비게이션 바 (GNB) */}
-            <header className="bg-white shadow-sm sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16 items-center">
-                        <div className="flex-shrink-0 flex items-center">
-                            <Link to={ROUTES.HOME} className="text-2xl font-bold text-blue-600">
-                                Ex-Ledger
-                            </Link>
-                        </div>
+          {/* 중앙 메뉴 (Desktop) */}
+          <nav className="items-center hidden gap-8 text-sm font-semibold md:flex text-slate-600">
+            <a href="#" className="transition-colors hover:text-teal-600">서비스 소개</a>
+            <a href="#" className="transition-colors hover:text-teal-600">환율 정보</a>
+            <a href="#" className="transition-colors hover:text-teal-600">고객 지원</a>
+          </nav>
 
-                        <nav className="flex space-x-4 ml-6 flex-1">
-                            {/* 메인 메뉴 링크 추가 영역 */}
-                        </nav>
-
-                        <div className="flex items-center space-x-4">
-                            {isAuth ? (
-                                <>
-                                    <Button variant="ghost" size="sm" onClick={() => navigate('/admin/health')}>
-                                        시스템 상태
-                                    </Button>
-                                    <Button variant="secondary" size="sm" onClick={handleLogout}>
-                                        로그아웃
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Link to={ROUTES.LOGIN}>
-                                        <Button variant="ghost" size="sm">로그인</Button>
-                                    </Link>
-                                    <Link to={ROUTES.SIGNUP}>
-                                        <Button variant="primary" size="sm">회원가입</Button>
-                                    </Link>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* 메인 콘텐츠 */}
-            <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex">
-                <Outlet />
-            </main>
-
-            {/* 푸터 */}
-            <footer className="bg-white border-t border-gray-200 py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
-                        <p>&copy; {new Date().getFullYear()} Ex-Ledger Team. All rights reserved.</p>
-                        <div className="flex space-x-4 mt-4 md:mt-0">
-                            <Link to={ROUTES.POLICY} className="hover:text-gray-900">개인정보처리방침</Link>
-                            <Link to={ROUTES.POLICY} className="hover:text-gray-900">이용약관</Link>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+          {/* 우측 버튼 */}
+          <div>
+            <button className="px-5 py-2 text-sm font-bold text-white transition-all bg-teal-700 rounded-md shadow-sm hover:bg-teal-800">
+              로그인/회원가입
+            </button>
+          </div>
         </div>
-    );
+      </header>
+
+      {/* 2. 메인 콘텐츠 영역 (LandingPage) */}
+      <div className="flex-grow">
+        {children}
+      </div>
+
+      {/* 3. 푸터 영역 (Footer) */}
+      <footer className="px-6 py-12 bg-slate-900 text-slate-400">
+        <div className="flex flex-col items-center gap-6 mx-auto max-w-7xl">
+          {/* 인증 마크 로고 섹션 (시안 반영) */}
+          <div className="flex gap-6 opacity-50 grayscale">
+            <span className="px-2 py-1 text-xs border rounded border-slate-700">ISO 27001</span>
+            <span className="px-2 py-1 text-xs border rounded border-slate-700">PCI-DSS</span>
+            <span className="px-2 py-1 text-xs border rounded border-slate-700">ISMS</span>
+          </div>
+
+          <div className="space-y-2 text-center">
+            <div className="flex justify-center gap-4 mb-4 text-xs font-medium">
+              <a href="#" className="hover:text-white">이용약관</a>
+              <a href="#" className="font-bold hover:text-white">개인정보처리방침</a>
+              <a href="#" className="hover:text-white">운영정책</a>
+              <a href="#" className="hover:text-white">공지사항</a>
+            </div>
+            <p className="text-xs">
+              Ex-Ledger Co., Ltd. | 대표이사: 홍길동 | 사업자등록번호: 000-00-00000
+            </p>
+            <p className="text-[10px] text-slate-600">
+              © 2026 Ex-Ledger. All rights reserved. 안전하고 투명한 글로벌 정산 서비스를 제공합니다.
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
 };
+
+export default CommonLayout;
