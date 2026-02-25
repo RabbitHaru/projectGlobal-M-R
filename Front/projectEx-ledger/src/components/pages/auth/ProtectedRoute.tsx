@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation, Outlet } from 'react-router-dom';
-import { isAuthenticated, parseJwt } from '../../utils/auth';
-import { ROUTES } from '../../constants/routes';
+import { isAuthenticated, parseJwt } from '../../../utils/auth';
+import { ROUTES } from '../../../constants/routes';
 
 interface ProtectedRouteProps {
     requireAdmin?: boolean;
