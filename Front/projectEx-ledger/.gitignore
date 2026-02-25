@@ -25,4 +25,4 @@ dist-ssr
 *.sw?
 
 # Ignore secret application properties
-src/main/resources/secret.properties
+secret.properties
