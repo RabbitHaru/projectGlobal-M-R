@@ -1,4 +1,4 @@
-package me.projectexledger.common.entity;
+package me.projectexledger.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
@@ -11,12 +11,12 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 /**
- * 생성/수정 시간 자동 기록을 위한 공통 엔티티
+ * Data creation/modification tracking entity
  */
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-public abstract class BaseTimeEntity {
+public abstract class BaseEntity {
 
     @CreatedDate
     @Column(updatable = false)

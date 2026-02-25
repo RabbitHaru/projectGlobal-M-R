@@ -1,41 +1,32 @@
 package me.projectexledger.common.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import me.projectexledger.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * 전역 예외 처리 핸들러
+ * Global exception handler
  */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail("시스템 오류가 발생했습니다: " + e.getMessage()));
-    }
-
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
-        String msg = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.fail(msg));
+    protected ResponseEntity<ApiResponse<Object>> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException e) {
+        log.error("handleMethodArgumentNotValidException", e);
+        ApiResponse<Object> response = ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler({ AuthenticationException.class, AccessDeniedException.class })
-    public ResponseEntity<ApiResponse<Void>> handleSecurityException(Exception e) {
-        return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.fail("접근 권한이 없습니다."));
+    @ExceptionHandler(Exception.class)
+    protected ResponseEntity<ApiResponse<Object>> handleException(Exception e) {
+        log.error("handleEntityNotFoundException", e);
+        ApiResponse<Object> response = ApiResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    // Add custom business logic exceptions here as project progresses
 }
