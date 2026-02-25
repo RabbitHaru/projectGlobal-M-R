@@ -1,11 +1,11 @@
 import React, { Suspense, lazy } from 'react';
-import CommonLayout from '../components/layout/CommonLayout';
-import FXTicker from '../components/finance/FXTicker';
-import MiniConverter from '../components/finance/MiniConverter';
-import ExchangeRateTable from '../components/finance/ExchangeRateTable';
+import CommonLayout from '../../components/layout/CommonLayout';
+import FXTicker from '../../components/finance/FXTicker';
+import MiniConverter from '../../components/finance/MiniConverter';
+import ExchangeRateTable from '../../components/finance/ExchangeRateTable';
 
 // 차트 컴포넌트 지연 로딩 (Code Splitting)
-const ExchangeRateChart = lazy(() => import('../components/finance/ExchangeRateChart'));
+const ExchangeRateChart = lazy(() => import('../../components/finance/ExchangeRateChart'));
 
 const ChartSkeleton = () => <div className="w-full bg-gray-100 border border-gray-200 h-96 animate-pulse rounded-xl"></div>;
 const TableSkeleton = () => <div className="w-full bg-gray-100 border border-gray-200 h-96 animate-pulse rounded-xl"></div>;
