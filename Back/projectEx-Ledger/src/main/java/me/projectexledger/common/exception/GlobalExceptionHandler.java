@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * Global exception handler
+ * 전역 예외 처리기
  */
 @Slf4j
 @RestControllerAdvice

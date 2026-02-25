@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Date calculation utilities for settlements
+ * 정산을 위한 날짜 계산 유틸리티
  */
 public class DateUtils {
 

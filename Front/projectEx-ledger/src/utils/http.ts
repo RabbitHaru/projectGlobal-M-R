@@ -25,7 +25,7 @@ http.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             removeAuthToken();
-            window.location.href = '/auth/login'; // Redirect to login on unauthorized
+            window.location.href = '/auth/login'; // 권한 없음 시 로그인 페이지로 리다이렉트
         }
         return Promise.reject(error);
     }

@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Standardized API response format
+ * 표준화된 API 응답 규격
  */
 @Data
 @Builder

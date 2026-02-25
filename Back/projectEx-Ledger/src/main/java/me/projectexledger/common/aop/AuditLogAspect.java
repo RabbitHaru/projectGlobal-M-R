@@ -7,7 +7,7 @@ import org.aspectj.lang.annotation.Before;
 import org.springframework.stereotype.Component;
 
 /**
- * Automatic logging for financial API calls
+ * 금융 API 호출 자동 로깅
  */
 @Slf4j
 @Aspect

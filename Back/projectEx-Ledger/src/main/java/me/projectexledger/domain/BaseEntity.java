@@ -11,7 +11,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 /**
- * Data creation/modification tracking entity
+ * 데이터 생성/수정 추적 엔티티
  */
 @Getter
 @MappedSuperclass
