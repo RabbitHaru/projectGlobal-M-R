@@ -25,5 +25,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# Ignore secret application properties
-secret.properties
+# Ignore package-lock.json
+package-lock.json
