@@ -1,9 +1,9 @@
 // src/App.tsx
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import LandingPage from "./components/pages/common/LandingPage";
+import LandingPage from "./pages/common/LandingPage";
 // import LoginPage from './pages/LoginPage';
-// import DashboardPage from './pages/DashboardPage';
+import DashboardPage from './pages/admin/AdminDashboard';
 
 const App: React.FC = () => {
   return (
@@ -14,7 +14,7 @@ const App: React.FC = () => {
 
         {/* 추후 추가될 라우트들 */}
         {/* <Route path="/login" element={<LoginPage />} /> */}
-        {/* <Route path="/dashboard" element={<DashboardPage />} /> */}
+        <Route path="/admin" element={<DashboardPage />} />
       </Routes>
     </BrowserRouter>
   );

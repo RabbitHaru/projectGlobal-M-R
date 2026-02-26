@@ -13,48 +13,55 @@ public class PortOneClient {
 
     private final WebClient webClient;
 
-    // application.yml에 있는 포트원 시크릿 키를 안전하게 주입받습니다.
     public PortOneClient(WebClient.Builder webClientBuilder,
                          @Value("${portone.api.secret}") String apiSecret) {
         this.webClient = webClientBuilder
                 .baseUrl("https://api.portone.io")
                 .defaultHeader("Authorization", "PortOne " + apiSecret)
-                .defaultHeader("Content-Type", "application/json")
                 .build();
     }
 
     /**
-     * 특정 날짜의 결제 완료(PAID) 내역을 포트원 서버에서 긁어옵니다.
+     * [Member A 테스트 모드]
+     * Member C의 결제가 없어도 '가상계좌 입금 완료' 데이터를 흉내냅니다.
      */
     public List<PortOneTxDto> fetchCompletedPayments(String targetDate) {
-        log.info("📡 포트원 V2 API 호출: {} 일자 정산 내역 조회", targetDate);
+        log.info("📡 포트원 V2 API 호출 (시뮬레이션 모드): {} 일자 내역 조회", targetDate);
 
-        try {
-            // 실제 API 호출 로직 (포트원 V2 결제 내역 단건/다건 조회 API 규격에 맞춤)
-            /*
-            return webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/payments")
-                            .queryParam("status", "PAID")
-                            .queryParam("created_at", targetDate)
-                            .build())
-                    .retrieve()
-                    .bodyToFlux(PortOneTxDto.class)
-                    .collectList()
-                    .block(); // Batch에서 동기적으로 기다려야 하므로 block 처리
-            */
+        // 실제 연동 시 아래 주석을 해제하면 됩니다.
+        /*
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/payments")
+                        .queryParam("status", "PAID")
+                        .build())
+                .retrieve()
+                .bodyToMono(PortOneResponse.class)
+                .map(PortOneResponse::items)
+                .block();
+        */
 
-            // 개발 및 테스트를 위한 더미 데이터 반환 (실제 연동 전까지 사용)
-            return List.of(
-                    new PortOneTxDto("TX_20260225_001", new BigDecimal("50000.00"), "KRW"),
-                    new PortOneTxDto("TX_20260225_002", new BigDecimal("150000.00"), "KRW")
-            );
-        } catch (Exception e) {
-            log.error("🚨 포트원 API 연동 실패: {}", e.getMessage());
-            throw new RuntimeException("외부 결제망 통신 오류", e);
-        }
+        // [실제 같은 테스트 데이터 생성]
+        // 시나리오: 유저가 1,000,500원을 가상계좌로 입금 성공함
+        return List.of(
+                new PortOneTxDto(
+                        "TX_VIRTUAL_001",           // 거래 ID
+                        new Amount(new BigDecimal("1000500")), // 입금 금액
+                        "KRW",                      // 통화
+                        "VIRTUAL_ACCOUNT",          // 결제 수단 (가상계좌)
+                        "PAID"                      // 결제 상태
+                ),
+                new PortOneTxDto(
+                        "TX_VIRTUAL_002",
+                        new Amount(new BigDecimal("500000")),
+                        "KRW",
+                        "VIRTUAL_ACCOUNT",
+                        "PAID"
+                )
+        );
     }
 
-    // 포트원 응답 데이터를 담을 간결한 Record (Java 16+)
-    public record PortOneTxDto(String transactionId, BigDecimal amount, String currency) {}
+    // 포트원 규격에 맞춘 DTO 구조
+    public record PortOneTxDto(String id, Amount amount, String currency, String method, String status) {}
+    public record Amount(BigDecimal total) {}
 }

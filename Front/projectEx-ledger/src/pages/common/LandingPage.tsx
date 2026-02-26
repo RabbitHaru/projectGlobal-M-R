@@ -1,12 +1,12 @@
 import React, { Suspense, lazy } from "react";
-import CommonLayout from "../../layout/CommonLayout";
-import FXTicker from "../../../widgets/finance/FXTicker";
-import MiniConverter from "../../../widgets/finance/MiniConverter";
-import ExchangeRateTable from "../../../widgets/finance/ExchangeRateTable";
+import CommonLayout from "../../components/layout/CommonLayout";
+import FXTicker from "../../widgets/finance/FXTicker";
+import MiniConverter from "../../widgets/finance/MiniConverter";
+import ExchangeRateTable from "../../widgets/finance/ExchangeRateTable";
 
 // 차트 컴포넌트 지연 로딩 (Code Splitting)
 const ExchangeRateChart = lazy(
-  () => import("../../../widgets/finance/ExchangeRateChart"),
+  () => import("../../widgets/finance/ExchangeRateChart"),
 );
 
 const ChartSkeleton = () => (
