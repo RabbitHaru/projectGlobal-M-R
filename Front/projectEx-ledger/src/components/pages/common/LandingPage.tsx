@@ -1,3 +1,4 @@
+import type { ExchangeRate } from "../../../types/exchange";
 import React, { Suspense, lazy, useState, useEffect } from "react";
 import CommonLayout from "../../layout/CommonLayout";
 import FXTicker from "../../widgets/finance/FXTicker";
@@ -17,17 +18,17 @@ const TableSkeleton = () => (
 );
 
 const LandingPage: React.FC = () => {
-  // Member C의 핵심 전략: 데이터를 여기서 중앙 관리합니다.
-  const [rates, setRates] = useState([]);
+  const [rates, setRates] = useState<ExchangeRate[]>([]);
 
   useEffect(() => {
-    // 초기 데이터 로드
-    fetch("/api/exchange/latest")
+    // 🌟 1. 백엔드 주소(8080) 다시 부활!
+    fetch("http://localhost:8080/api/exchange/latest")
       .then((res) => res.json())
-      .then((data) => setRates(data));
+      .then((data) => setRates(data))
+      .catch((err) => console.error("데이터 로드 실패:", err));
 
-    // SSE 실시간 업데이트 연결
-    const eventSource = new EventSource("/api/connect");
+    // 🌟 2. SSE 연결도 백엔드 주소(8080) 부활!
+    const eventSource = new EventSource("http://localhost:8080/api/connect");
     eventSource.addEventListener("exchange-update", (event: any) => {
       const updatedRates = JSON.parse(event.data);
       setRates(updatedRates);

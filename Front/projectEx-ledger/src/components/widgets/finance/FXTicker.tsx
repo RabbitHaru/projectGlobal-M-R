@@ -1,45 +1,94 @@
 import React from "react";
-import { formatCurrency, getCurrencyName } from "../../../utils/formatter";
+import { formatCurrency } from "../../../utils/formatter";
+import type { ExchangeRate } from "../../../types/exchange";
 
-interface ExchangeRate {
-  curUnit: string;
-  rate: number;
-  updatedAt: string;
-}
-
-// Props 인터페이스 정의
 interface FXTickerProps {
   rates: ExchangeRate[];
 }
 
 const FXTicker: React.FC<FXTickerProps> = ({ rates }) => {
+  if (!rates || !Array.isArray(rates) || rates.length === 0) {
+    return <div className="w-full h-10 bg-white border-b border-gray-200" />;
+  }
+
+  // 2. 주요 3대 통화 필터링
+  const displayRates = rates
+    .filter((r) => {
+      const unit = r.curUnit.toUpperCase();
+      return (
+        unit.includes("USD") || unit.includes("JPY") || unit.includes("EUR")
+      );
+    })
+    .slice(0, 3);
+
+  if (displayRates.length === 0) return null;
+
+  // 3. 무한 스크롤을 위한 복제
+  const duplicatedRates = [...displayRates, ...displayRates, ...displayRates];
+
   return (
-    <div className="ticker-container">
-      <h2 className="mb-4 text-xl font-bold">실시간 환율 정보</h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {rates.map((rate) => (
-          <div
-            key={rate.curUnit}
-            className="p-4 transition-colors bg-white border rounded-lg shadow-sm hover:border-blue-200"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-lg font-semibold">
-                  {rate.curUnit.split("(")[0]}
+    <div className="relative flex items-center w-full h-10 overflow-hidden bg-white border-b border-gray-200">
+      <style>
+        {`
+          @keyframes ticker-slide {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-33.33%); }
+          }
+          .ticker-track {
+            display: flex;
+            width: max-content;
+            animation: ticker-slide 25s linear infinite;
+          }
+          .ticker-track:hover { animation-play-state: paused; }
+        `}
+      </style>
+
+      <div className="ticker-track">
+        {duplicatedRates.map((rate, index) => {
+          // 🌟 [핵심] 실제 데이터를 기반으로 한 등락 판별 로직
+          const amount = rate.changeAmount || 0;
+          const isUp = amount > 0;
+          const isDown = amount < 0;
+
+          // 색상 및 기호 결정
+          const colorClass = isUp
+            ? "text-red-500"
+            : isDown
+              ? "text-blue-500"
+              : "text-gray-500";
+          const arrow = isUp ? "▲" : isDown ? "▼" : "-";
+
+          const currencyName = rate.curUnit.includes("USD")
+            ? "미국 달러"
+            : rate.curUnit.includes("JPY")
+              ? "일본 엔"
+              : "유로";
+
+          return (
+            <div
+              key={`${rate.curUnit}-${index}`}
+              className="flex items-center px-12 whitespace-nowrap"
+            >
+              <span className="mr-3 text-sm font-medium text-gray-500">
+                {currencyName}
+              </span>
+
+              <span className="mr-3 text-base font-bold text-slate-800">
+                {formatCurrency(rate.rate, rate.curUnit)}
+              </span>
+
+              {/* 🌟 백엔드에서 계산해준 실제 수치 출력 */}
+              <span
+                className={`flex items-center text-sm font-semibold ${colorClass}`}
+              >
+                {arrow} {Math.abs(amount).toFixed(2)}
+                <span className="ml-1 text-xs">
+                  ({(rate.changeRate || 0).toFixed(2)}%)
                 </span>
-                <p className="text-sm text-gray-500">
-                  {getCurrencyName(rate.curUnit)}
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="font-bold text-blue-600">
-                  {formatCurrency(rate.rate, rate.curUnit)}
-                </span>
-                <p className="mt-1 text-xs text-gray-400">{rate.updatedAt}</p>
-              </div>
+              </span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

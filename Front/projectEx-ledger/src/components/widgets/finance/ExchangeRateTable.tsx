@@ -1,12 +1,6 @@
 import React from "react";
 import { formatCurrency, getCurrencyName } from "../../../utils/formatter";
-
-interface ExchangeRate {
-  curUnit: string;
-  curNm: string;
-  rate: number;
-  updatedAt: string;
-}
+import type { ExchangeRate } from "../../../types/exchange";
 
 const ExchangeRateTable: React.FC<{ rates: ExchangeRate[] }> = ({ rates }) => {
   return (

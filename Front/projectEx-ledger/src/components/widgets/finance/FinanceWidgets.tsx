@@ -1,14 +1,7 @@
+import type { ExchangeRate } from "../../../types/exchange";
 import React, { useState, useEffect } from "react";
-import FXTicker from "./FXTicker";
 import MiniConverter from "./MiniConverter";
-
-// 공통 인터페이스 정의 (안정적인 Props 전달을 위해)
-interface ExchangeRate {
-  curUnit: string;
-  curNm: string;
-  rate: number;
-  updatedAt: string;
-}
+import FXTicker from "./FXTicker";
 
 const FinanceWidgets: React.FC = () => {
   // 1. 타입을 명시하여 빈 배열([]) 참조 에러 방지
