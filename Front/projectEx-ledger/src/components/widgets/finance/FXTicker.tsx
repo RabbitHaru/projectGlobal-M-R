@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { formatCurrency, getCurrencyName } from "../../../utils/formatter";
 
 interface ExchangeRate {
@@ -7,25 +7,12 @@ interface ExchangeRate {
   updatedAt: string;
 }
 
-const FXTicker: React.FC = () => {
-  const [rates, setRates] = useState<ExchangeRate[]>([]);
+// Props 인터페이스 정의
+interface FXTickerProps {
+  rates: ExchangeRate[];
+}
 
-  useEffect(() => {
-    // 1. 초기 데이터 로드 (백엔드 API 호출)
-    fetch("/api/exchange/latest")
-      .then((res) => res.json())
-      .then((data) => setRates(data));
-
-    // 2. SSE 연결 (실시간 업데이트 수신)
-    const eventSource = new EventSource("/api/connect");
-    eventSource.addEventListener("exchange-update", (event: any) => {
-      const updatedRates = JSON.parse(event.data);
-      setRates(updatedRates);
-    });
-
-    return () => eventSource.close();
-  }, []);
-
+const FXTicker: React.FC<FXTickerProps> = ({ rates }) => {
   return (
     <div className="ticker-container">
       <h2 className="mb-4 text-xl font-bold">실시간 환율 정보</h2>
@@ -33,7 +20,7 @@ const FXTicker: React.FC = () => {
         {rates.map((rate) => (
           <div
             key={rate.curUnit}
-            className="p-4 bg-white border rounded-lg shadow-sm"
+            className="p-4 transition-colors bg-white border rounded-lg shadow-sm hover:border-blue-200"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -45,11 +32,10 @@ const FXTicker: React.FC = () => {
                 </p>
               </div>
               <div className="text-right">
-                {/* 우리가 만든 포맷터 적용 부분 */}
                 <span className="font-bold text-blue-600">
                   {formatCurrency(rate.rate, rate.curUnit)}
                 </span>
-                <p className="text-xs text-gray-400">{rate.updatedAt}</p>
+                <p className="mt-1 text-xs text-gray-400">{rate.updatedAt}</p>
               </div>
             </div>
           </div>
