@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-public class LoginRequest {
+public class MfaLoginRequest {
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
@@ -15,6 +15,8 @@ public class LoginRequest {
 
     @NotBlank(message = "Password is required")
     private String password;
+
+    private int code;
 
     private String turnstileToken;
 }

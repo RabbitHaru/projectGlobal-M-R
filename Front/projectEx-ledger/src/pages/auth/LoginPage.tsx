@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import http from '../../config/http';
 import { setToken } from '../../config/auth';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const LoginPage: React.FC = () => {
-    const navigate = useNavigate();
+    const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -15,12 +16,17 @@ const LoginPage: React.FC = () => {
         e.preventDefault();
         setError('');
 
+        if (!turnstileToken) {
+            setError('Turnstile (봇 방지) 인증이 완료되지 않았습니다.');
+            return;
+        }
+
         try {
-            const response = await http.post('/auth/login', { email, password });
+            const response = await http.post('/auth/login', { email, password, turnstileToken });
             if (response.data && response.data.data) {
                 const { accessToken } = response.data.data;
                 setToken(accessToken);
-                navigate('/');
+                window.location.href = '/';
             }
         } catch (err: any) {
             setError(err.response?.data?.message || '로그인에 실패했습니다.');
@@ -52,6 +58,13 @@ const LoginPage: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                 />
+
+                <div className="flex justify-center my-4">
+                    <Turnstile
+                        siteKey="1x00000000000000000000AA"
+                        onSuccess={(token) => setTurnstileToken(token)}
+                    />
+                </div>
 
                 <Button type="submit" className="w-full mt-4">
                     로그인

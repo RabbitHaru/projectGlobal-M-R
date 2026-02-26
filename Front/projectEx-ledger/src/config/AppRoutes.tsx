@@ -31,15 +31,18 @@ const AppRoutes = () => {
                 <Route path="/auth/mfa" element={<MFASetup />} />
             </Route>
 
-            {/* 보안/인증 필요 라우트 (Foundation: 임시로 모두 허용 상태) */}
+            {/* 보안/인증 필요 라우트 */}
             <Route element={<ProtectedRoute />}>
                 <Route element={<RootLayout />}>
+                    {/* 일반 로그인 사용자 접근 가능 (User, Company Admin, Integrated Admin) */}
                     <Route path="/dashboard" element={<DummyHome />} />
                     <Route path="/settlement" element={<div className="p-4">Settlement</div>} />
 
                     {/* 관리자(Admin) 전용 라우트 */}
-                    <Route path="/admin/logs" element={<AdminLogList />} />
-                    <Route path="/admin/health" element={<SystemHealth />} />
+                    <Route element={<ProtectedRoute allowedRoles={['ROLE_COMPANY_ADMIN', 'ROLE_INTEGRATED_ADMIN']} />}>
+                        <Route path="/admin/logs" element={<AdminLogList />} />
+                        <Route path="/admin/health" element={<SystemHealth />} />
+                    </Route>
                 </Route>
             </Route>
         </Routes>

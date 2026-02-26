@@ -18,4 +18,8 @@ public class SignupRequest {
 
     @NotBlank(message = "Name is required")
     private String name;
+
+    private String roleType; // "USER" or "COMPANY_ADMIN"
+    private String businessNumber; // "1234567890" etc
+    private String turnstileToken;
 }

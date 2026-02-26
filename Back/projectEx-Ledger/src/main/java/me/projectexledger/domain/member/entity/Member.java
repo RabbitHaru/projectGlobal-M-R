@@ -32,6 +32,12 @@ public class Member extends BaseEntity {
     @Column(nullable = false, length = 20)
     private Role role;
 
+    @Column(nullable = false)
+    private boolean mfaEnabled = false;
+
+    @Column(length = 100)
+    private String totpSecret;
+
     @Builder
     public Member(String email, String password, String name, Role role) {
         this.email = email;
@@ -41,6 +47,16 @@ public class Member extends BaseEntity {
     }
 
     public enum Role {
-        ROLE_USER, ROLE_ADMIN
+        ROLE_USER,
+        ROLE_COMPANY_ADMIN,
+        ROLE_INTEGRATED_ADMIN
+    }
+
+    public void enableMfa() {
+        this.mfaEnabled = true;
+    }
+
+    public void updateTotpSecret(String secret) {
+        this.totpSecret = secret;
     }
 }

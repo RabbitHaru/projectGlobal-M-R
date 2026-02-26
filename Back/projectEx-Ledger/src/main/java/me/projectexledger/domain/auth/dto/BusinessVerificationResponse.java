@@ -5,8 +5,7 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class TokenResponse {
-    private String accessToken;
-    private String tokenType;
-    private boolean mfaRequired;
+public class BusinessVerificationResponse {
+    private boolean valid;
+    private String message;
 }
