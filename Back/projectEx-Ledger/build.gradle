@@ -25,7 +25,12 @@ repositories {
 }
 
 dependencies {
-//  implementation 'org.springframework.boot:spring-boot-starter-security'
+    // Security & JWT
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
     // Spring Boot Core
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -53,14 +58,20 @@ dependencies {
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     implementation 'com.fasterxml.jackson.core:jackson-annotations'
 
+    // Google Authenticator (TOTP)
+    implementation 'com.warrenstrange:googleauth:1.5.0'
+
+    // Spring AOP (For MFA and Audit logs)
+    implementation 'org.springframework.boot:spring-boot-starter-aop:3.2.1'
+
     // JUnit 5 & AssertJ
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-
 
     // Spring Cloud OpenFeign
     // Temporarily disabled for local testing (Spring Cloud auto-configuration conflict)
     // implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 }
+
 // Spring Cloud BOM
 // Temporarily disabled for local testing (Spring Cloud auto-configuration conflict)
 // dependencyManagement {

@@ -1,29 +1,32 @@
 import React from 'react';
 import { Navigate, useLocation, Outlet } from 'react-router-dom';
-import { isAuthenticated, parseJwt } from '../../utils/auth';
-import { ROUTES } from '../../constants/routes';
+import { isAuthenticated, parseJwt, getToken } from '../../../config/auth';
 
 interface ProtectedRouteProps {
-    requireAdmin?: boolean;
+    allowedRoles?: string[];
 }
 
 /**
  * 인증/권한 기반 라우트 보호 컴포넌트
  */
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requireAdmin = false }) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
     const location = useLocation();
-    const token = localStorage.getItem('access_token');
+    const token = getToken();
     const isAuth = isAuthenticated();
 
     if (!isAuth) {
-        return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (requireAdmin && token) {
+    if (allowedRoles && allowedRoles.length > 0 && token) {
         const payload = parseJwt(token);
-        const authorities = payload?.auth || '';
-        if (!authorities.includes('ROLE_ADMIN')) {
-            return <Navigate to={ROUTES.HOME} replace />;
+        const authorities: string = payload?.auth || '';
+        const userRoles = authorities.split(',');
+
+        const hasRequiredRole = allowedRoles.some(role => userRoles.includes(role));
+        if (!hasRequiredRole) {
+            // 권한이 없으면 루트 경로(또는 렌딩 페이지)로 이동
+            return <Navigate to="/" replace />;
         }
     }
 

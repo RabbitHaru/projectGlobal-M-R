@@ -2,10 +2,9 @@ package me.projectexledger;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling; // 1. 임포트 추가
 
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
-
-@EnableJpaAuditing
+@EnableScheduling
 @SpringBootApplication
 public class ProjectExLedgerApplication {
 
