@@ -2,10 +2,13 @@ package me.projectexledger.domain.settlement.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.projectexledger.domain.payment.entity.PaymentLog;
+import me.projectexledger.domain.admin.dto.DashboardSummaryDTO;
 import me.projectexledger.domain.payment.repository.PaymentLogRepository;
+import me.projectexledger.domain.settlement.api.PortOneClient;
+import me.projectexledger.infrastructure.external.portone.dto.PortOnePaymentResponse;
 import me.projectexledger.domain.settlement.dto.ReconciliationListDTO;
-import me.projectexledger.domain.settlement.dto.response.DashboardSummaryResponse;
+import me.projectexledger.domain.settlement.entity.RemittanceHistory;
+import me.projectexledger.domain.settlement.repository.RemittanceHistoryRepository;
 import me.projectexledger.domain.settlement.entity.Settlement;
 import me.projectexledger.domain.settlement.entity.SettlementStatus;
 import me.projectexledger.domain.settlement.repository.SettlementRepository;
@@ -20,6 +23,9 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Member A: [정산/송금 엔진 & 어드민 마스터] 핵심 서비스
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,94 +35,130 @@ public class SettlementEngineService {
     private final PaymentLogRepository paymentLogRepository;
     private final SettlementRepository settlementRepository;
     private final ExchangeRateCalculator exchangeRateCalculator;
+    private final PortOneClient portOneClient;
+
+    // 💡 1. 여기에 이력 저장소(Repository) 주입이 추가되었습니다!
+    private final RemittanceHistoryRepository remittanceHistoryRepository;
 
     /**
-     * [대시보드] 요약 데이터 조회 (수정 완료)
-     * Repository의 쿼리를 이용해 실제 DB 데이터를 집계하여 반환합니다.
+     * [1. AdminDashboard] 전체 결제 합계 및 해외 송금 집행 현황 요약
      */
-    public DashboardSummaryResponse getDashboardSummary() {
-        log.info("[SettlementEngine] 대시보드 요약 데이터 계산 요청");
+    public DashboardSummaryDTO getDashboardSummary() {
+        log.info("[SettlementEngine] 실시간 대시보드 통계 집계 중...");
 
-        // DB에서 실제 통계 데이터 조회
         BigDecimal totalAmount = settlementRepository.sumTotalSettlementAmountByStatus(SettlementStatus.COMPLETED);
-        long pendingCount = settlementRepository.countByStatus(SettlementStatus.PENDING);
 
-        return DashboardSummaryResponse.builder()
-                .totalSettlementAmount(totalAmount != null ? totalAmount : BigDecimal.ZERO) // null 방어
-                .pendingCount((int) pendingCount)
+        return DashboardSummaryDTO.builder()
+                .totalPaymentAmount(totalAmount != null ? totalAmount : BigDecimal.ZERO)
+                .totalRemittanceCount(settlementRepository.count())
+                .completedRemittanceCount(settlementRepository.countByStatus(SettlementStatus.COMPLETED))
+                .pendingRemittanceCount(settlementRepository.countByStatus(SettlementStatus.PENDING))
+                .failedRemittanceCount(settlementRepository.countByStatus(SettlementStatus.FAILED))
+                .discrepancyCount(settlementRepository.countByStatus(SettlementStatus.DISCREPANCY))
                 .build();
     }
 
     /**
-     * [일일 정산 동기화] 기획서 공식 기반 환율 적용 및 DB 적재 파이프라인
+     * [2. 정산 파이프라인] 포트원(V2) 결제 내역 동기화 및 환율 공식 적용
      */
     @Transactional
-    public void processDailySettlement(String date) {
-        log.info("[SettlementEngine] 🚀 {} 일자 포트원 동기화 및 계산 파이프라인 시작", date);
+    public void processDailySettlement(String targetDate, String authToken) {
+        log.info("[SettlementEngine] 🚀 {} 일자 포트원 API 데이터 동기화 시작", targetDate);
 
-        List<PortOneMockDto> externalPayments = fetchPaymentsFromPortOneMock(date);
+        PortOnePaymentResponse response = portOneClient.getPayments(authToken, targetDate, targetDate, 0, 100);
 
-        // 외부 API에서 가져올 매매기준율과 내부 설정값 (하드코딩 대신 추후 DB 조회로 변경)
         BigDecimal baseRate = new BigDecimal("1350.50");
         BigDecimal spreadFee = new BigDecimal("10.00");
         BigDecimal preferredRate = new BigDecimal("0.90");
 
-        for (PortOneMockDto payment : externalPayments) {
+        response.items().forEach(item -> {
+            if (settlementRepository.existsByOrderId(item.paymentId())) return;
 
-            // 중복 방지 (멱등성)
-            if (settlementRepository.existsByOrderId(payment.orderId())) {
-                continue;
-            }
+            BigDecimal finalRate = exchangeRateCalculator.calculateFinalRate(baseRate, spreadFee, preferredRate);
+            BigDecimal settlementAmount = exchangeRateCalculator.calculateSettlementAmount(item.amount(), finalRate);
 
-            // 기획서 공식(최종적용환율 = 매매기준율 + (전산환전수수료 * (1 - 우대율))) 적용 계산
-            BigDecimal finalAppliedRate = exchangeRateCalculator.calculateFinalRate(baseRate, spreadFee, preferredRate);
-            BigDecimal settlementAmount = exchangeRateCalculator.calculateSettlementAmount(payment.amount(), finalAppliedRate);
-
-            Settlement newSettlement = Settlement.builder()
-                    .orderId(payment.orderId())
-                    .clientName(payment.clientName())
-                    .amount(payment.amount())
+            settlementRepository.save(Settlement.builder()
+                    .orderId(item.paymentId())
+                    .clientName(item.customer().name())
+                    .amount(item.amount())
                     .baseRate(baseRate)
                     .spreadFee(spreadFee)
                     .preferredRate(preferredRate)
-                    .finalAppliedRate(finalAppliedRate)
-                    .settlementAmount(settlementAmount) // 최종 적용 금액
-                    .status(SettlementStatus.COMPLETED)
-                    .build();
-
-            settlementRepository.save(newSettlement);
-        }
-        log.info("[SettlementEngine] ✅ 파이프라인 적재 완료");
+                    .finalAppliedRate(finalRate)
+                    .settlementAmount(settlementAmount)
+                    .status(SettlementStatus.PENDING)
+                    .build());
+        });
     }
 
-    // --- 이하 기존 유지 코드 (getReconciliationList 등) ---
+    /**
+     * [3. ReconciliationList] 외부 포트원 내역과 내부 송금 DB 대조 리스트
+     */
     public List<ReconciliationListDTO> getReconciliationList(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<PaymentLog> paymentLogPage = paymentLogRepository.findAll(pageable);
-        return paymentLogPage.stream()
-                .map(log -> ReconciliationListDTO.builder()
-                        .orderId(log.getOrderId())
-                        .clientName(log.getClient() != null ? log.getClient().getName() : "미상")
-                        .amount(log.getAmount())
-                        .status(log.getStatus().name())
-                        .reconResult("MATCH")
-                        .createdAt(log.getCreatedAt())
-                        .build())
-                .collect(Collectors.toList());
+        Page<Settlement> settlements = settlementRepository.findAll(pageable);
+
+        return settlements.stream().map(settlement -> {
+            String reconResult = paymentLogRepository.findByOrderId(settlement.getOrderId())
+                    .map(log -> log.getAmount().compareTo(settlement.getAmount()) == 0 ? "MATCH" : "DISCREPANCY")
+                    .orElse("MISSING_INTERNAL_LOG");
+
+            return ReconciliationListDTO.builder()
+                    .orderId(settlement.getOrderId())
+                    .clientName(settlement.getClientName())
+                    .amount(settlement.getAmount())
+                    .status(settlement.getStatus().name())
+                    .reconResult(reconResult)
+                    .createdAt(settlement.getCreatedAt())
+                    .build();
+        }).collect(Collectors.toList());
     }
 
+    /**
+     * [4. ReconciliationDetail] 오차 발생 건 수정 및 승인 처리
+     */
     @Transactional
-    public void resolveDiscrepancy(Long settlementId) { /* TODO */ }
+    public void resolveDiscrepancy(Long settlementId, BigDecimal correctedAmount, String reason) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("정산 건을 찾을 수 없습니다."));
 
+        settlement.updateSettlementAmount(correctedAmount);
+        settlement.markAsResolved(reason);
+        log.info("[SettlementEngine] ✅ 오차 해결 완료: ID {}, 사유: {}", settlementId, reason);
+    }
+
+    /**
+     * [5. RemittanceManagement] 자동 송금 실패 건 재전송 및 이력 관리
+     */
     @Transactional
-    public void retryRemittance(Long settlementId) { /* TODO */ }
+    public void retryRemittance(Long settlementId) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("재전송 대상이 없습니다."));
 
-    // 임시 모의 데이터
-    private record PortOneMockDto(String orderId, String clientName, BigDecimal amount) {}
-    private List<PortOneMockDto> fetchPaymentsFromPortOneMock(String date) {
-        return List.of(
-                new PortOneMockDto("ORD-20260226-001", "스타벅스", new BigDecimal("100.00")),
-                new PortOneMockDto("ORD-20260226-002", "나이키", new BigDecimal("50.00"))
-        );
+        log.info("[SettlementEngine] 💸 송금 재시도 실행: OrderId {}", settlement.getOrderId());
+
+        try {
+            // TODO: 실제 해외 송금 API 연동 로직
+            settlement.updateStatus(SettlementStatus.COMPLETED);
+
+            // 💡 2. 5번 메서드 수정: 성공 이력을 DB에 저장합니다!
+            remittanceHistoryRepository.save(RemittanceHistory.builder()
+                    .settlement(settlement)
+                    .status("SUCCESS")
+                    .attemptCount(2) // 예시: 2회차 시도 (실무에서는 카운트를 조회해서 +1 합니다)
+                    .build());
+
+        } catch (Exception e) {
+            log.error("[SettlementEngine] ❌ 송금 재시도 실패: {}", e.getMessage());
+            settlement.updateStatus(SettlementStatus.FAILED);
+
+            // 💡 3. 5번 메서드 수정: 실패 이력도 에러 메시지와 함께 DB에 저장합니다!
+            remittanceHistoryRepository.save(RemittanceHistory.builder()
+                    .settlement(settlement)
+                    .status("FAILED")
+                    .errorMessage(e.getMessage())
+                    .attemptCount(2)
+                    .build());
+        }
     }
 }

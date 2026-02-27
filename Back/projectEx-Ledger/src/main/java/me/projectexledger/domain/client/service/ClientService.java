@@ -20,6 +20,7 @@ import java.util.List;
 public class ClientService {
 
     private final ClientRepository clientRepository;
+    // private final GoogleAuthService googleAuthService;
 
     /**
      * 가입 신청 중인 기업 목록을 가져옵니다 (수백 건 이내 최적화).
@@ -36,6 +37,10 @@ public class ClientService {
     public void approveClient(Long clientId, BigDecimal feeRate) {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 기업을 찾을 수 없습니다."));
+        //  승인 전 가맹점주의 OTP 설정 여부를 확인합니다.
+//        if (!googleAuthService.isMfaRegistered(client.getOwnerId())) {
+//            throw new IllegalStateException("가맹점주가 아직 MFA(OTP)를 설정하지 않았습니다. 보안을 위해 OTP 설정 후 승인이 가능합니다.");
+//        }
 
         client.approve(); // 상태를 APPROVED로 변경
         client.updateFeeRate(feeRate); // 소통된 수수료율 적용

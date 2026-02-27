@@ -5,12 +5,10 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
+import me.projectexledger.domain.BaseEntity;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "settlements", indexes = {
@@ -20,7 +18,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
-public class Settlement {
+public class Settlement extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,7 +39,7 @@ public class Settlement {
     // 🚨 기획서 정산 환율 공식 컴포넌트 필수 저장 (Audit 목적)
     // ==========================================
     @Column(name = "base_rate", nullable = false, precision = 19, scale = 4)
-    private BigDecimal baseRate; // 제노(C)가 가져온 순수 매매기준율
+    private BigDecimal baseRate; //  매매기준율
 
     @Column(name = "spread_fee", nullable = false, precision = 19, scale = 4)
     private BigDecimal spreadFee; // 우리 서비스 마진 (전산 환전 수수료)
@@ -60,13 +58,8 @@ public class Settlement {
     @Column(nullable = false, length = 30)
     private SettlementStatus status;
 
-    @CreatedDate
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Column(name = "resolution_reason", length = 500)
+    private String resolutionReason;
 
     // @Builder 도입: 객체 생성 시점에 모든 데이터가 안전하게 세팅되도록 강제
     @Builder
@@ -88,7 +81,13 @@ public class Settlement {
     public void markAsDiscrepancy() {
         this.status = SettlementStatus.DISCREPANCY;
     }
-
+    public void markAsResolved(String reason) {
+        this.status = SettlementStatus.COMPLETED;
+        this.resolutionReason = reason;
+    }
+    public void updateSettlementAmount(BigDecimal correctedAmount) {
+        this.settlementAmount = correctedAmount;
+    }
     public void updateStatus(SettlementStatus newStatus) {
         this.status = newStatus;
     }

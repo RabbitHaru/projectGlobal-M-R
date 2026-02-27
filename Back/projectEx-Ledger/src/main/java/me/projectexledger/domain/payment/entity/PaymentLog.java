@@ -43,7 +43,7 @@ public class PaymentLog {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PaymentStatus status; // REQUESTED, COMPLETED, FAILED
+    private PaymentStatus status;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

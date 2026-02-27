@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
+import me.projectexledger.domain.BaseEntity;
 
 /**
  * 기업 고객(클라이언트) 정보 및 수수료 정책 관리 엔티티
@@ -14,7 +15,7 @@ import java.math.BigDecimal;
 @Table(name = "clients")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Client {
+public class Client extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

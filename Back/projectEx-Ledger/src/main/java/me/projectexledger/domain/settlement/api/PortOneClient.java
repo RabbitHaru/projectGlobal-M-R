@@ -1,67 +1,36 @@
 package me.projectexledger.domain.settlement.api;
 
-import lombok.extern.slf4j.Slf4j;
+import me.projectexledger.infrastructure.external.portone.dto.PortOnePaymentResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
-import java.math.BigDecimal;
-import java.util.List;
+import org.springframework.web.client.RestClient;
 
-@Slf4j
+// 💡 팁: 이제 UriComponentsBuilder는 아예 import 할 필요도 없습니다!
+
 @Component
 public class PortOneClient {
 
-    private final WebClient webClient;
+    private final RestClient restClient;
+    private final String apiUrl;
 
-    public PortOneClient(WebClient.Builder webClientBuilder,
-                         @Value("${portone.api.secret}") String apiSecret) {
-        this.webClient = webClientBuilder
-                .baseUrl("https://api.portone.io")
-                .defaultHeader("Authorization", "PortOne " + apiSecret)
-                .build();
+    // 1. 빨간줄 해결: Builder 주입 대신 RestClient.create()로 직접 생성합니다.
+    public PortOneClient(@Value("${external.portone.api-url}") String apiUrl) {
+        this.restClient = RestClient.create();
+        this.apiUrl = apiUrl;
     }
 
-    /**
-     * [Member A 테스트 모드]
-     * Member C의 결제가 없어도 '가상계좌 입금 완료' 데이터를 흉내냅니다.
-     */
-    public List<PortOneTxDto> fetchCompletedPayments(String targetDate) {
-        log.info("📡 포트원 V2 API 호출 (시뮬레이션 모드): {} 일자 내역 조회", targetDate);
+    public PortOnePaymentResponse getPayments(String authToken, String from, String to, int page, int size) {
 
-        // 실제 연동 시 아래 주석을 해제하면 됩니다.
-        /*
-        return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/payments")
-                        .queryParam("status", "PAID")
+        // 2. 빨간줄 해결: fromHttpUrl 대신 RestClient가 자체 지원하는 내장 uri 빌더를 씁니다.
+        return restClient.get()
+                .uri(apiUrl + "/payments", uriBuilder -> uriBuilder
+                        .queryParam("from", from)
+                        .queryParam("to", to)
+                        .queryParam("page", page)
+                        .queryParam("size", size)
                         .build())
+                .header("Authorization", authToken) // "Bearer {secret_key}"
                 .retrieve()
-                .bodyToMono(PortOneResponse.class)
-                .map(PortOneResponse::items)
-                .block();
-        */
-
-        // [실제 같은 테스트 데이터 생성]
-        // 시나리오: 유저가 1,000,500원을 가상계좌로 입금 성공함
-        return List.of(
-                new PortOneTxDto(
-                        "TX_VIRTUAL_001",           // 거래 ID
-                        new Amount(new BigDecimal("1000500")), // 입금 금액
-                        "KRW",                      // 통화
-                        "VIRTUAL_ACCOUNT",          // 결제 수단 (가상계좌)
-                        "PAID"                      // 결제 상태
-                ),
-                new PortOneTxDto(
-                        "TX_VIRTUAL_002",
-                        new Amount(new BigDecimal("500000")),
-                        "KRW",
-                        "VIRTUAL_ACCOUNT",
-                        "PAID"
-                )
-        );
+                .body(PortOnePaymentResponse.class);
     }
-
-    // 포트원 규격에 맞춘 DTO 구조
-    public record PortOneTxDto(String id, Amount amount, String currency, String method, String status) {}
-    public record Amount(BigDecimal total) {}
 }
