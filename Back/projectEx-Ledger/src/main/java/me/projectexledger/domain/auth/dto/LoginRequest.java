@@ -17,4 +17,7 @@ public class LoginRequest {
     private String password;
 
     private String turnstileToken;
+
+    // MFA가 설정된 사용자의 경우 구글 OTP 6자리 코드 필요
+    private Integer otpCode;
 }

@@ -60,6 +60,9 @@ dependencies {
 
     // Google Authenticator (TOTP)
     implementation 'com.warrenstrange:googleauth:1.5.0'
+
+    // Spring AOP (For MFA and Audit logs)
+    implementation 'org.springframework.boot:spring-boot-starter-aop:3.2.1'
 }
 
 tasks.named('test') {
