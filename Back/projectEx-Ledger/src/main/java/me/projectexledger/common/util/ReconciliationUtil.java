@@ -71,7 +71,6 @@ public class ReconciliationUtil {
         return pendingSettlement;
     }
 
-    // 임시 DTO 클래스 (실제로는 분리)
     public interface InternalTxDto {
         String getTransactionId();
 
