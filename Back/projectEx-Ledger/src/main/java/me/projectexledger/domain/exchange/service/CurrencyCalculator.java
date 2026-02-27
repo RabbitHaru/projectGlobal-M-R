@@ -21,7 +21,6 @@ public class CurrencyCalculator {
         return baseAmount.add(fee).setScale(0, RoundingMode.HALF_UP);
     }
 
-
     // 수수료가 제외된 순수 환율 계산 (우대율 적용 시 확장 가능)
 
     public BigDecimal applyPreferentialRate(BigDecimal baseRate, BigDecimal preference) {
