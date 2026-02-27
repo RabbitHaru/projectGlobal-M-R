@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation, Outlet } from 'react-router-dom';
-import { isAuthenticated, parseJwt, getToken } from '../../config/auth';
+import { isAuthenticated, parseJwt, getToken } from '../../../config/auth';
 
 interface ProtectedRouteProps {
     allowedRoles?: string[];

@@ -9,4 +9,5 @@ public class TokenResponse {
     private String accessToken;
     private String tokenType;
     private boolean mfaRequired;
+    private boolean mfaSetupRequired;
 }

@@ -69,14 +69,14 @@ public class AuthService {
         Member member = memberRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        if (member.isMfaEnabled()) {
-            return new TokenResponse(null, "Bearer", true);
+        // 모든 사용자에게 예외 없이 MFA 검증 및 설정 강제
+        if (!member.isMfaEnabled()) {
+            // 아직 설정을 안 했다면, frontend가 setupMfa를 호출하도록 유도
+            return new TokenResponse(null, "Bearer", false, true);
         }
 
-        // 3. 인증 정보를 기반으로 JWT 토큰 생성
-        String jwt = jwtTokenProvider.createToken(authentication);
-
-        return new TokenResponse(jwt, "Bearer", false);
+        // 설정이 되어 있다면 OTP 코드 입력 단계로 이동
+        return new TokenResponse(null, "Bearer", true, false);
     }
 
     @Transactional
@@ -102,7 +102,7 @@ public class AuthService {
         }
 
         String jwt = jwtTokenProvider.createToken(authentication);
-        return new TokenResponse(jwt, "Bearer", false);
+        return new TokenResponse(jwt, "Bearer", false, false);
     }
 
     @Transactional

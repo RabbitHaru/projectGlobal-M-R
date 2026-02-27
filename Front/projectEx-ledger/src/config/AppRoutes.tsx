@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import RootLayout from '../components/layout/RootLayout';
 import AuthLayout from '../components/layout/AuthLayout';
-import { ProtectedRoute } from '../components/common/ProtectedRoute';
+import { ProtectedRoute } from '../components/pages/common/ProtectedRoute';
 
 // Common Pages
 import LandingPage from '../components/pages/common/LandingPage';

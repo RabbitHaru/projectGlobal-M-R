@@ -17,6 +17,8 @@ import me.projectexledger.domain.auth.dto.MfaLoginRequest;
 import me.projectexledger.domain.auth.dto.MfaSetupResponse;
 import me.projectexledger.domain.auth.dto.MfaVerifyRequest;
 import me.projectexledger.domain.auth.service.BusinessVerificationService;
+import me.projectexledger.common.annotation.RequireMfa;
+import org.springframework.web.bind.annotation.GetMapping;
 import java.security.Principal;
 
 @RestController
@@ -72,5 +74,11 @@ public class AuthController {
         } else {
             return ApiResponse.fail("검증 실패: " + response.getMessage());
         }
+    }
+
+    @RequireMfa
+    @GetMapping("/test-mfa")
+    public ApiResponse<String> testMfaEndpoint(Principal principal) {
+        return ApiResponse.success("MFA 인증을 무사히 통과했습니다! 사용자: " + principal.getName(), null);
     }
 }

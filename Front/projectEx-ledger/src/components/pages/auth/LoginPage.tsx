@@ -10,6 +10,8 @@ const LoginPage: React.FC = () => {
     const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [otpCode, setOtpCode] = useState('');
+    const [isMfaRequired, setIsMfaRequired] = useState(false);
     const [error, setError] = useState('');
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -22,19 +24,42 @@ const LoginPage: React.FC = () => {
         }
 
         try {
-            const response = await http.post('/auth/login', { email, password, turnstileToken });
-            if (response.data && response.data.data) {
-                const { accessToken } = response.data.data;
-                setToken(accessToken);
-                window.location.href = '/';
+            if (isMfaRequired) {
+                // MFA 검증 로직
+                const response = await http.post('/auth/login/mfa', { email, password, code: Number(otpCode), turnstileToken });
+                if (response.data && response.data.data) {
+                    const { accessToken } = response.data.data;
+                    setToken(accessToken);
+                    window.location.href = '/';
+                }
+            } else {
+                // 1차 로그인 라우트
+                const response = await http.post('/auth/login', { email, password, turnstileToken });
+                if (response.data && response.data.data) {
+                    const { accessToken, mfaRequired, mfaSetupRequired } = response.data.data;
+
+                    if (mfaSetupRequired) {
+                        setError('보안 강화를 위해 구글 OTP 최초 설정이 필요합니다. 설정 페이지로 이동해 주세요.');
+                        // TODO: 향후 구현될 MFA 설정 페이지(/mfa-setup)로 리다이렉트
+                        return;
+                    }
+
+                    if (mfaRequired) {
+                        setIsMfaRequired(true);
+                        setError(''); // 이전 에러 초기화
+                    } else {
+                        setToken(accessToken);
+                        window.location.href = '/';
+                    }
+                }
             }
         } catch (err: any) {
-            setError(err.response?.data?.message || '로그인에 실패했습니다.');
+            setError(err.response?.data?.message || err.response?.data?.data || '로그인에 실패했습니다.');
         }
     };
 
     return (
-        <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
+        <div className="w-full">
             <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">로그인</h2>
 
             {error && (
@@ -57,7 +82,20 @@ const LoginPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isMfaRequired}
                 />
+
+                {isMfaRequired && (
+                    <Input
+                        label="구글 OTP 앱 6자리 코드"
+                        type="text"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        placeholder="123456"
+                        required
+                        maxLength={6}
+                    />
+                )}
 
                 <div className="flex justify-center my-4">
                     <Turnstile
