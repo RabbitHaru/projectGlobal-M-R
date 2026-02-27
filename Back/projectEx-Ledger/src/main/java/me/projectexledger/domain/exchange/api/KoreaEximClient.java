@@ -1,9 +1,10 @@
 package me.projectexledger.domain.exchange.api;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.projectexledger.config.KoreaEximProperties;
 import me.projectexledger.domain.exchange.dto.ExchangeRateDTO;
 import me.projectexledger.domain.exchange.utils.CurrencyMapper;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -11,8 +12,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -21,14 +20,11 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor // 생성자 주입을 통한 불변성 확보
 public class KoreaEximClient implements ExchangeRateProvider {
 
-    @Value("${api.koreaexim.key}")
-    private String authKey;
-
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final String API_URL = "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON";
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private final KoreaEximProperties properties;
+    private final RestTemplate restTemplate = new RestTemplate(); // 필요 시 Bean으로 주입 권장
 
     @Override
     public List<ExchangeRateDTO> fetchRates() {
@@ -38,9 +34,10 @@ public class KoreaEximClient implements ExchangeRateProvider {
     public List<ExchangeRateDTO> fetchHistoricalRates(String dateStr) {
         String searchDate = dateStr.replace("-", "");
         try {
-            String url = UriComponentsBuilder.fromUriString(API_URL)
-                    .queryParam("authkey", authKey)
-                    .queryParam("data", "AP01")
+            // 🌟 프로퍼티를 활용한 동적 URL 생성
+            String url = UriComponentsBuilder.fromUriString(properties.getBaseUrl())
+                    .queryParam("authkey", properties.getServiceKey())
+                    .queryParam("data", properties.getDataType())
                     .queryParam("searchdate", searchDate)
                     .build()
                     .toUriString();
@@ -48,21 +45,20 @@ public class KoreaEximClient implements ExchangeRateProvider {
             Map<String, Object>[] response = restTemplate.getForObject(url, Map[].class);
 
             if (response == null || response.length == 0) {
+                log.warn("⚠️ [{}] 해당 날짜의 데이터가 존재하지 않습니다 (주말/공휴일 가능성).", dateStr);
                 return Collections.emptyList();
             }
 
             String timestamp = dateStr + " 11:00:00";
 
             return Arrays.stream(response)
-                    // 🌟 1. 불필요한 KRW(원화 기준) 데이터 원천 차단
                     .filter(map -> !map.get("cur_unit").toString().contains("KRW"))
                     .map(map -> convertToDto(map, timestamp))
-                    // 🌟 2. 우리가 지원하는 국가만 남기기 (옵션이지만 안전장치)
                     .filter(dto -> CurrencyMapper.isSupported(dto.getCurUnit()))
                     .collect(Collectors.toList());
 
         } catch (Exception e) {
-            log.error("KoreaExim API 에러: {}", e.getMessage());
+            log.error("❌ KoreaExim API 호출 에러 [{}]: {}", dateStr, e.getMessage());
             return Collections.emptyList();
         }
     }
@@ -74,14 +70,15 @@ public class KoreaEximClient implements ExchangeRateProvider {
 
     private ExchangeRateDTO convertToDto(Map<String, Object> map, String timestamp) {
         String rawUnit = map.get("cur_unit").toString();
+        // Deal Basis Rate (매매 기준율) 파싱
         String rateStr = map.get("deal_bas_r").toString().replace(",", "");
         BigDecimal rate = new BigDecimal(rateStr);
 
-        // 🌟 3. JPY(100), IDR(100) 등을 1단위로 정규화
+        // 🌟 JPY(100), IDR(100) 단위 정규화 (Settlement Accuracy 확보)
         String curUnit = rawUnit;
         if (rawUnit.contains("(100)")) {
-            curUnit = rawUnit.replace("(100)", "").trim(); // "JPY(100)" -> "JPY"
-            rate = rate.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP); // 918 -> 9.18
+            curUnit = rawUnit.replace("(100)", "").trim();
+            rate = rate.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
         }
 
         return ExchangeRateDTO.builder()

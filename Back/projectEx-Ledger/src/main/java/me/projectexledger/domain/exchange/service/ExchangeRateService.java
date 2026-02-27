@@ -38,9 +38,9 @@ public class ExchangeRateService {
     private static final String REDIS_KEY = "LATEST_RATES";
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    /**
-     * 1. 실시간 업데이트 및 캐시 갱신 (Scheduler에서 호출하는 핵심 메서드)
-     */
+
+     // 1. 실시간 업데이트 및 캐시 갱신 (Scheduler에서 호출하는 핵심 메서드)
+
     @Transactional
     public List<ExchangeRateDTO> updateAndCacheRates() {
         LocalDate today = LocalDate.now();
