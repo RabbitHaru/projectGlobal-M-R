@@ -7,7 +7,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-package-lock
 node_modules
 package-lock.json
 dist
@@ -26,4 +25,4 @@ dist-ssr
 *.sw?
 
 # Ignore secret application properties
-secret.properties
+src/main/resources/secret.properties

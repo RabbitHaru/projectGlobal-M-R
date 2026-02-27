@@ -1,25 +1,29 @@
-// src/components/layout/CommonLayout.tsx
 import React, { type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
+  const token = localStorage.getItem('access_token');
+
   return (
     <div className="flex flex-col min-h-screen font-sans bg-gray-50 text-slate-900">
-      
+
       {/* 1. 상단 내비게이션 바 (Header) */}
       <header className="sticky top-0 z-50 w-full px-6 py-4 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between mx-auto max-w-7xl">
           {/* 로고 영역 */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 bg-teal-600 rounded">
-              <span className="text-xl font-bold text-white">E</span>
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tighter text-slate-800">
-              Ex-Ledger
-            </h1>
+            <Link to="/" className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-8 h-8 bg-teal-600 rounded">
+                <span className="text-xl font-bold text-white">E</span>
+              </div>
+              <h1 className="text-2xl font-extrabold tracking-tighter text-slate-800">
+                Ex-Ledger
+              </h1>
+            </Link>
           </div>
 
           {/* 중앙 메뉴 (Desktop) */}
@@ -31,9 +35,23 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* 우측 버튼 */}
           <div>
-            <button className="px-5 py-2 text-sm font-bold text-white transition-all bg-teal-700 rounded-md shadow-sm hover:bg-teal-800">
-              로그인/회원가입
-            </button>
+            {token ? (
+              <button
+                onClick={() => {
+                  localStorage.removeItem('access_token');
+                  window.location.href = '/';
+                }}
+                className="px-5 py-2 text-sm font-bold text-white transition-all bg-slate-600 rounded-md shadow-sm hover:bg-slate-700"
+              >
+                로그아웃
+              </button>
+            ) : (
+              <Link to="/login">
+                <button className="px-5 py-2 text-sm font-bold text-white transition-all bg-teal-700 rounded-md shadow-sm hover:bg-teal-800">
+                  로그인/회원가입
+                </button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
