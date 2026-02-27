@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
-import http from '../../config/http';
+import { Button } from '../common/Button';
+import { Input } from '../common/Input';
+import http from '../../../config/http';
 import { Turnstile } from '@marsidev/react-turnstile';
 
 const SignupPage: React.FC = () => {

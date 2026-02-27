@@ -1,24 +1,11 @@
-<<<<<<<< HEAD:Front/projectEx-ledger/src/pages/common/LandingPage.tsx
-import React, { Suspense, lazy } from 'react';
-import CommonLayout from '../../components/layout/CommonLayout';
-import FXTicker from '../../components/finance/FXTicker';
-import MiniConverter from '../../components/finance/MiniConverter';
-import ExchangeRateTable from '../../components/finance/ExchangeRateTable';
-
-// 차트 컴포넌트 지연 로딩 (Code Splitting)
-const ExchangeRateChart = lazy(() => import('../../components/finance/ExchangeRateChart'));
-========
 import React, { Suspense, lazy } from "react";
 import CommonLayout from "../../layout/CommonLayout";
-import FXTicker from "../../../widgets/finance/FXTicker";
-import MiniConverter from "../../../widgets/finance/MiniConverter";
-import ExchangeRateTable from "../../../widgets/finance/ExchangeRateTable";
+import FXTicker from "../../widgets/finance/FXTicker";
 
 // 차트 컴포넌트 지연 로딩 (Code Splitting)
-const ExchangeRateChart = lazy(
-  () => import("../../../widgets/finance/ExchangeRateChart"),
-);
->>>>>>>> main:Front/projectEx-ledger/src/components/pages/common/LandingPage.tsx
+const ExchangeRateChart = lazy(() => import("../../widgets/finance/ExchangeRateChart"));
+const MiniConverter = lazy(() => import("../../widgets/finance/MiniConverter"));
+const ExchangeRateTable = lazy(() => import("../../widgets/finance/ExchangeRateTable"));
 
 const ChartSkeleton = () => (
   <div className="w-full bg-gray-100 border border-gray-200 h-96 animate-pulse rounded-xl"></div>

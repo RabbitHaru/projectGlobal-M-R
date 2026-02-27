@@ -4,16 +4,16 @@ import AuthLayout from '../components/layout/AuthLayout';
 import { ProtectedRoute } from '../components/common/ProtectedRoute';
 
 // Common Pages
-import LandingPage from '../pages/common/LandingPage';
+import LandingPage from '../components/pages/common/LandingPage';
 
 // Auth Pages
-import LoginPage from '../pages/auth/LoginPage';
-import SignupPage from '../pages/auth/SignupPage';
-import MFASetup from '../pages/auth/MFASetup';
+import LoginPage from '../components/pages/auth/LoginPage';
+import SignupPage from '../components/pages/auth/SignupPage';
+import MFASetup from '../components/pages/auth/MFASetup';
 
 // Admin System Pages
-import AdminLogList from '../pages/admin/system/AdminLogList';
-import SystemHealth from '../pages/admin/system/SystemHealth';
+import AdminLogList from '../components/pages/admin/system/AdminLogList';
+import SystemHealth from '../components/pages/admin/system/SystemHealth';
 
 // 임시 페이지 컴포넌트
 const DummyHome = () => <div className="p-4">Home (Dashboard)</div>;

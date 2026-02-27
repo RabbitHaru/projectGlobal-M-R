@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
-import http from '../../config/http';
-import { setToken } from '../../config/auth';
+import { Button } from '../common/Button';
+import { Input } from '../common/Input';
+import http from '../../../config/http';
+import { setToken } from '../../../config/auth';
 import { Turnstile } from '@marsidev/react-turnstile';
 
 const LoginPage: React.FC = () => {
