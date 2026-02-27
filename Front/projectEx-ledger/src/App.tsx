@@ -1,11 +1,21 @@
-import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
-import AppRoutes from './config/AppRoutes';
+// src/App.tsx
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LandingPage from "./components/pages/common/LandingPage";
+// import LoginPage from './pages/LoginPage';
+// import DashboardPage from './pages/DashboardPage';
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <Routes>
+        {/* 주소창에 '/' (루트) 입력 시 LandingPage 렌더링 */}
+        <Route path="/" element={<LandingPage />} />
+
+        {/* 추후 추가될 라우트들 */}
+        {/* <Route path="/login" element={<LoginPage />} /> */}
+        {/* <Route path="/dashboard" element={<DashboardPage />} /> */}
+      </Routes>
     </BrowserRouter>
   );
 };

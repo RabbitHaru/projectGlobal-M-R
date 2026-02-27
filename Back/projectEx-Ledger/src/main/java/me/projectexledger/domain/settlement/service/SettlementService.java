@@ -6,13 +6,12 @@ import me.projectexledger.common.util.ReconciliationUtil;
 import me.projectexledger.domain.settlement.api.PortOneClient;
 import me.projectexledger.domain.settlement.entity.Settlement;
 import me.projectexledger.domain.settlement.entity.SettlementStatus;
+import me.projectexledger.domain.settlement.repository.SettlementRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -20,37 +19,66 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SettlementService {
 
+    private final SettlementRepository settlementRepository;
     private final PortOneClient portOneClient;
     private final ReconciliationUtil reconciliationUtil;
 
     /**
-     * Batch의 ItemProcessor 단계에서 호출되는 핵심 정산 엔진입니다.
-     * 트랜잭션을 걸어, 도중에 실패하면 이 뭉치(Chunk) 전체가 롤백되도록 안전장치를 둡니다.
+     * 대량의 금융 데이터를 처리하고 무결성을 검증합니다.
      */
     @Transactional
-    public Settlement processSingleSettlement(Settlement pendingSettlement) {
-        // 1. 오늘 날짜 기준으로 포트원 데이터 조회 (실제로는 Batch Step 시작 시 한 번만 캐싱해두는 것이 성능에 좋습니다)
-        String today = LocalDate.now().toString();
-        List<PortOneClient.PortOneTxDto> externalDataList = portOneClient.fetchCompletedPayments(today);
+    public void processDailySettlement(String targetDate) {
+        log.info("🚀 {} 일자 대량 정산 검증 프로세스를 시작합니다.", targetDate);
 
-        // 2. O(N) 검증을 위해 외부 데이터를 Map으로 변환
-        Map<String, BigDecimal> portOneDataMap = externalDataList.stream()
-                .collect(Collectors.toMap(
-                        PortOneClient.PortOneTxDto::transactionId,
-                        PortOneClient.PortOneTxDto::amount,
-                        (existing, replacement) -> existing // 중복 키 발생 시 기존 값 유지
-                ));
+        // 1. 내부 DB에서 '송금 대기' 상태인 정산 대상 데이터 조회
+        // (SettlementStatus.PENDING은 '송금 대기'를 의미합니다)
+        List<Settlement> pendingSettlements = settlementRepository.findByStatus(SettlementStatus.PENDING);
 
-        // 3. 무결성 대조 실행 (ReconciliationUtil에게 위임)
-        log.debug("정산 대조 시작 - TX_ID: {}", pendingSettlement.getTransactionId());
-        Settlement processedData = reconciliationUtil.verifyAndProcess(pendingSettlement, portOneDataMap);
-
-        // 4. 위험 감지 시 알림
-        if (processedData.getStatus() == SettlementStatus.DISCREPANCY) {
-            log.error("🚨 [긴급] 정산 오차 발견! 즉시 확인 요망. TX_ID: {}", processedData.getTransactionId());
-            // TODO: 슬랙(Slack)이나 이메일로 관리자에게 즉시 알람을 쏘는 로직 추가
+        if (pendingSettlements.isEmpty()) {
+            log.info("정산할 데이터가 없습니다.");
+            return;
         }
 
-        return processedData;
+        // 2. 포트원 V2 API를 연동하여 서버 사이드에서 결제/송금 완료 내역 조회
+        List<PortOneClient.PortOneTxDto> externalPayments = portOneClient.fetchCompletedPayments(targetDate);
+
+        // 3. 내부 데이터를 ReconciliationUtil이 이해할 수 있는 InternalTxDto 인터페이스로 어댑팅
+        List<ReconciliationUtil.InternalTxDto> internalDataList = pendingSettlements.stream()
+                .map(settlement -> new ReconciliationUtil.InternalTxDto() {
+                    @Override
+                    public String getTransactionId() {
+                        return settlement.getTransactionId();
+                    }
+
+                    @Override
+                    public BigDecimal getAmount() {
+                        return settlement.getAmount();
+                    }
+                })
+                .collect(Collectors.toList());
+
+        // 4. 외부 데이터를 ReconciliationUtil이 이해할 수 있는 ExternalTxDto 인터페이스로 어댑팅
+        List<ReconciliationUtil.ExternalTxDto> externalDataList = externalPayments.stream()
+                .map(ext -> new ReconciliationUtil.ExternalTxDto() {
+                    @Override
+                    public String getTransactionId() {
+                        return ext.transactionId();
+                    }
+
+                    @Override
+                    public BigDecimal getAmount() {
+                        return ext.amount();
+                    }
+                })
+                .collect(Collectors.toList());
+
+        // 5. O(N) 속도의 핵심 정산 대조 알고리즘 실행
+        log.info("📊 총 {}건의 내부 데이터와 {}건의 외부 데이터 대조를 시작합니다.", internalDataList.size(), externalDataList.size());
+        reconciliationUtil.reconcile(internalDataList, externalDataList);
+
+        // 6. 상태 업데이트 반영 로직
+        // (ReconciliationUtil에서 직접 엔티티를 수정하도록 변경하거나,
+        // 대조 결과를 반환받아 여기서 일괄 update 처리를 진행하면 됩니다.)
+        log.info("✅ 일일 정산 검증 프로세스 완료.");
     }
 }
