@@ -1,5 +1,6 @@
 package me.projectexledger.domain.exchange.service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.projectexledger.domain.exchange.api.FrankfurterClient;
@@ -39,7 +40,7 @@ public class ExchangeRateService {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
 
-     // 1. 실시간 업데이트 및 캐시 갱신 (Scheduler에서 호출하는 핵심 메서드)
+    // 1. 실시간 업데이트 및 캐시 갱신 (Scheduler에서 호출하는 핵심 메서드)
 
     @Transactional
     public List<ExchangeRateDTO> updateAndCacheRates() {
@@ -180,6 +181,16 @@ public class ExchangeRateService {
         try {
             redisTemplate.opsForValue().set(REDIS_KEY, rates, Duration.ofMinutes(10));
         } catch (Exception ignored) {
+        }
+    }
+
+    @PostConstruct
+    public void init() {
+        log.info("🚀 서버 기동: 환율 데이터 존재 여부 확인 중...");
+        // DB에 데이터가 하나도 없거나 오늘 데이터가 없으면 백필 실행
+        if (!isDataAlreadyExists(LocalDate.now())) {
+            log.info("⚠️ 데이터가 부족하여 자동으로 백필을 시작합니다.");
+            backfillHistoricalData();
         }
     }
 }
