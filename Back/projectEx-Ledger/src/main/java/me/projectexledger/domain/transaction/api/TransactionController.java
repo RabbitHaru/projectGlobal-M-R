@@ -2,6 +2,7 @@ package me.projectexledger.domain.transaction.api;
 
 import lombok.RequiredArgsConstructor;
 import me.projectexledger.common.dto.ApiResponse;
+import me.projectexledger.domain.transaction.dto.MyDashboardResponse;
 import me.projectexledger.domain.transaction.dto.TransactionRequest;
 import me.projectexledger.domain.transaction.entity.Transaction;
 import me.projectexledger.domain.transaction.service.TransactionService;
@@ -18,21 +19,30 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @PostMapping
-    public ApiResponse<Long> createTransaction(Principal principal, @RequestBody TransactionRequest request) {
-        // B님의 AuthController 방식대로 로그인한 사용자의 ID를 가져옵니다.
-        String userId = principal.getName();
+    public ApiResponse<Long> createTransaction(
+            @RequestBody TransactionRequest request,
+            Principal principal) {
+
+        String email = (principal != null) ? principal.getName() : "test@test.com";
 
         Transaction transaction = transactionService.createTransaction(
-                userId, request.getAmount(), request.getCurrency(), request.getDescription()
+                email,
+                request.getAmount(),
+                request.getCurrency(),
+                request.getDescription(),
+                request.getExternalTransactionId()
         );
 
-        return ApiResponse.success("거래 및 정산이 완료되었습니다.", transaction.getId());
+        return ApiResponse.success("거래가 생성되었습니다.", transaction.getId());
     }
 
-        @GetMapping("/my")
-    public ApiResponse<List<Transaction>> getMyTransactions(Principal principal) {
-        String userId = principal.getName();
-        List<Transaction> transactions = transactionService.getMyTransactions(userId);
-        return ApiResponse.success("거래 내역 조회 성공", transactions);
+    @GetMapping("/my-dashboard")
+    public ApiResponse<MyDashboardResponse> getMyDashboard(Principal principal) {
+        // B님의 보안 설정이 정상일 땐 principal.getName()을,
+        // 테스트 중일 땐 하드코딩된 이메일을 사용하세요.
+        String email = (principal != null) ? principal.getName() : "test@test.com";
+
+        MyDashboardResponse dashboard = transactionService.getMyDashboardSummary(email);
+        return ApiResponse.success("대시보드 조회 성공", dashboard);
     }
 }

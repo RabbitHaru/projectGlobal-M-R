@@ -3,6 +3,7 @@ package me.projectexledger.domain.transaction.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import me.projectexledger.domain.BaseEntity;
+import me.projectexledger.domain.member.entity.Member;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -12,34 +13,47 @@ import java.math.RoundingMode;
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "transactions")
-public class Transaction extends BaseEntity { // B님이 만든 BaseEntity 상속
+public class Transaction extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String userId; // AuthController의 principal.getName() 값 저장
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @Column(nullable = false, precision = 18, scale = 2)
-    private BigDecimal amount; // 외화 금액 (예: 100.00)
+    private BigDecimal amount;
 
     @Column(nullable = false, length = 10)
-    private String currency; // 통화 코드 (USD, JPY 등 - A님의 데이터와 매칭)
+    private String currency;
 
     @Column(precision = 18, scale = 2)
-    private BigDecimal appliedRate; // 정산 시 적용된 환율 (A님에게 받아올 값)
+    private BigDecimal appliedRate;
 
     @Column(precision = 18, scale = 2)
-    private BigDecimal convertedAmount; // 환산된 원화 금액
+    private BigDecimal convertedAmount;
 
-    private String description; // 거래 내용 (예: "스타벅스 뉴욕점")
+    @Enumerated(EnumType.STRING)
+    private TransactionStatus status;
 
-    // 비즈니스 로직: 정산 실행
-    public void updateSettlement(BigDecimal rate) {
+    @Column(unique = true)
+    private String externalTransactionId;
+
+    private String description;
+
+    public void calculateSettlement(BigDecimal rate) {
         this.appliedRate = rate;
-        // 외화 금액 * 환율 = 원화 금액 (소수점은 B님의 ReconciliationUtil 규칙에 따라 나중에 정밀 조정)
-        this.convertedAmount = this.amount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
+        this.convertedAmount = amount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
+        this.status = TransactionStatus.EXCHANGE_COMPLETED;
+    }
+
+    public void markAsSettled() {
+        this.status = TransactionStatus.SETTLED;
+    }
+
+    public void markAsDiscrepancy() {
+        this.status = TransactionStatus.FAILED;
     }
 }

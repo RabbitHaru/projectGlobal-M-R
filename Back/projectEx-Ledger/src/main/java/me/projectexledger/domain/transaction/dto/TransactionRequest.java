@@ -20,4 +20,7 @@ public class TransactionRequest {
     private String currency;   // 통화 코드
 
     private String description; // 거래 내용
+
+    @NotBlank(message = "외부 거래 ID는 필수입니다.")
+    private String externalTransactionId;
 }
