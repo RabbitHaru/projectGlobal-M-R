@@ -14,6 +14,9 @@ import me.projectexledger.domain.settlement.entity.SettlementStatus;
 import me.projectexledger.domain.settlement.repository.SettlementRepository;
 import me.projectexledger.domain.settlement.util.ExchangeRateCalculator;
 import me.projectexledger.domain.exchange.service.CurrencyCalculator;
+// 🌟 [추가] 가맹점 DB 조회를 위한 의존성 주입
+import me.projectexledger.domain.client.dto.repository.ClientRepository;
+import me.projectexledger.domain.client.entity.Client;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -22,7 +25,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,6 +41,7 @@ public class SettlementEngineService {
     private final PortOneClient portOneClient;
     private final RemittanceHistoryRepository remittanceHistoryRepository;
     private final CurrencyCalculator currencyCalculator;
+    private final ClientRepository clientRepository; // 🌟 가맹점 DB 조회기 추가!
 
     public DashboardSummaryDTO getDashboardSummary() {
         BigDecimal totalAmount = settlementRepository.sumTotalSettlementAmountByStatus(SettlementStatus.COMPLETED);
@@ -62,8 +65,8 @@ public class SettlementEngineService {
         BigDecimal liveUsdRate = exchangeRateCalculator.getUsdExchangeRate();
         log.info("[Settlement] 오늘자 실시간 USD 환율 적용: {}원", liveUsdRate);
 
-        BigDecimal networkFee = new BigDecimal("2000");       // 네트워크 고정비 2,000원 공통
-        BigDecimal spread = new BigDecimal("20.0");           // 은행 스프레드 (달러당 20원 마진 가정)
+        BigDecimal networkFee = new BigDecimal("2000");
+        BigDecimal spread = new BigDecimal("20.0");
 
         response.getItems().forEach(item -> {
             if (settlementRepository.existsByOrderId(item.getId())) return;
@@ -71,37 +74,40 @@ public class SettlementEngineService {
             String clientName = (item.getCustomer() != null && item.getCustomer().getName() != null)
                     ? item.getCustomer().getName() : "익명 고객";
 
-            // 👑 VIP 판별 로직 (이름에 VIP/기업 포함 여부로 임시 구분)
-            boolean isVip = clientName.toUpperCase().contains("VIP") || clientName.contains("기업");
+            // 🌟 [하드코딩 탈출!] DB에서 가맹점 정보 조회 (없으면 기본값 세팅)
+            Client client = clientRepository.findByName(clientName).orElse(null);
 
             BigDecimal platformFeeRate;
             BigDecimal preferenceRate;
+            String targetBank;
+            String targetAccount;
 
-            // 💰 A님의 최종 수수료 정책 적용
-            if (isVip) {
-                platformFeeRate = new BigDecimal("0.010"); // VIP: 플랫폼 수수료 1.0%
-                preferenceRate = new BigDecimal("1.00");   // VIP: 환율 우대 100% (마진 0)
-                log.info("[Settlement] 👑 VIP 적용: {} (수수료 1%, 우대 100%)", clientName);
+            if (client != null && client.getFeeRate() != null) {
+                // DB에 등록된 기업이면 해당 기업의 정책을 적용
+                platformFeeRate = client.getFeeRate();
+                preferenceRate = client.getPreferenceRate() != null ? client.getPreferenceRate() : new BigDecimal("0.90");
+                targetBank = client.getBankName();
+                targetAccount = client.getAccountNumber();
+                log.info("[Settlement] 🏢 DB 가맹점 정책 적용: {} (수수료 {}, 우대 {})", clientName, platformFeeRate, preferenceRate);
             } else {
-                platformFeeRate = new BigDecimal("0.015"); // 일반: 플랫폼 수수료 1.5%
-                preferenceRate = new BigDecimal("0.90");   // 일반: 환율 우대 90%
-                log.info("[Settlement] 🥉 일반 적용: {} (수수료 1.5%, 우대 90%)", clientName);
+                // 미등록 기업은 1.5% 수수료 등 기본 정책 적용
+                platformFeeRate = new BigDecimal("0.015");
+                preferenceRate = new BigDecimal("0.90");
+                targetBank = "미등록은행";
+                targetAccount = "계좌확인요망";
+                log.info("[Settlement] ⚠️ 미등록 가맹점 기본 정책 적용: {}", clientName);
             }
 
             BigDecimal totalAmount = item.getAmount().getTotal();
             String currency = item.getCurrency();
-            BigDecimal settlementAmount = totalAmount; // 기본값
+            BigDecimal settlementAmount = totalAmount;
             BigDecimal finalAppliedRate = liveUsdRate;
 
             if ("USD".equalsIgnoreCase(currency)) {
-                // 수익 창출 계산기 적용
                 settlementAmount = currencyCalculator.calculateFinalSettlementAmount(
                         totalAmount, liveUsdRate, platformFeeRate, networkFee, spread, preferenceRate
                 );
-
-                // 적용된 최종 환율 계산
                 finalAppliedRate = currencyCalculator.calculateFinalRate(liveUsdRate, spread, preferenceRate);
-
                 log.info("[Settlement] 수수료 적용 완료: {} USD -> {} KRW (주문번호: {})", totalAmount, settlementAmount, item.getId());
             }
 
@@ -109,6 +115,8 @@ public class SettlementEngineService {
                     .orderId(item.getId())
                     .transactionId(item.getId())
                     .clientName(clientName)
+                    .bankName(targetBank)           // 🌟 DB에서 가져온 진짜 은행
+                    .accountNumber(targetAccount)   // 🌟 DB에서 가져온 진짜 계좌
                     .amount(totalAmount)
                     .currency(currency)
                     .settlementAmount(settlementAmount)
@@ -130,6 +138,9 @@ public class SettlementEngineService {
                 .id(s.getId())
                 .orderId(s.getOrderId())
                 .clientName(s.getClientName())
+                .bankName(s.getBankName())
+                .accountNumber(s.getAccountNumber())
+                .amount(s.getAmount())
                 .originalAmount(s.getAmount())
                 .settlementAmount(s.getSettlementAmount())
                 .status(s.getStatus().name())
@@ -163,6 +174,8 @@ public class SettlementEngineService {
                 .orderId(orderId)
                 .transactionId("TX-" + System.currentTimeMillis())
                 .clientName(clientName)
+                .bankName("신한은행")
+                .accountNumber("110-123-" + (int)(Math.random() * 9000 + 1000))
                 .amount(amount)
                 .currency(currency)
                 .settlementAmount(amount)
@@ -173,5 +186,18 @@ public class SettlementEngineService {
                 .status(status)
                 .build());
         log.info("[Test] 테스트 결제 데이터 저장 완료: {}", orderId);
+    }
+
+    @Transactional
+    public void approveSettlement(Long settlementId) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 정산 건을 찾을 수 없습니다. ID: " + settlementId));
+
+        if (settlement.getStatus() != SettlementStatus.WAITING) {
+            throw new IllegalStateException("승인 대기(WAITING) 상태의 건만 승인할 수 있습니다.");
+        }
+
+        settlement.updateStatus(SettlementStatus.PENDING);
+        log.info("✅ [Settlement] 관리자 수동 승인 완료. 송금 대기(PENDING) 상태로 전환됨 (ID: {})", settlementId);
     }
 }
