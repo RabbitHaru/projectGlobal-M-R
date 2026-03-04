@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.projectexledger.domain.admin.dto.DashboardSummaryDTO;
 import me.projectexledger.domain.payment.repository.PaymentLogRepository;
 import me.projectexledger.domain.settlement.api.PortOneClient;
-import me.projectexledger.infrastructure.external.portone.dto.PortOnePaymentResponse;
+import me.projectexledger.portone.Response.PortOnePaymentResponse;
 import me.projectexledger.domain.settlement.dto.ReconciliationListDTO;
 import me.projectexledger.domain.settlement.entity.RemittanceHistory;
 import me.projectexledger.domain.settlement.repository.RemittanceHistoryRepository;
@@ -13,6 +13,8 @@ import me.projectexledger.domain.settlement.entity.Settlement;
 import me.projectexledger.domain.settlement.entity.SettlementStatus;
 import me.projectexledger.domain.settlement.repository.SettlementRepository;
 import me.projectexledger.domain.settlement.util.ExchangeRateCalculator;
+import me.projectexledger.domain.exchange.service.CurrencyCalculator;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +38,7 @@ public class SettlementEngineService {
     private final ExchangeRateCalculator exchangeRateCalculator;
     private final PortOneClient portOneClient;
     private final RemittanceHistoryRepository remittanceHistoryRepository;
+    private final CurrencyCalculator currencyCalculator;
 
     public DashboardSummaryDTO getDashboardSummary() {
         BigDecimal totalAmount = settlementRepository.sumTotalSettlementAmountByStatus(SettlementStatus.COMPLETED);
@@ -59,21 +62,47 @@ public class SettlementEngineService {
         BigDecimal liveUsdRate = exchangeRateCalculator.getUsdExchangeRate();
         log.info("[Settlement] 오늘자 실시간 USD 환율 적용: {}원", liveUsdRate);
 
+        BigDecimal networkFee = new BigDecimal("2000");       // 네트워크 고정비 2,000원 공통
+        BigDecimal spread = new BigDecimal("20.0");           // 은행 스프레드 (달러당 20원 마진 가정)
+
         response.getItems().forEach(item -> {
             if (settlementRepository.existsByOrderId(item.getId())) return;
 
             String clientName = (item.getCustomer() != null && item.getCustomer().getName() != null)
                     ? item.getCustomer().getName() : "익명 고객";
 
+            // 👑 VIP 판별 로직 (이름에 VIP/기업 포함 여부로 임시 구분)
+            boolean isVip = clientName.toUpperCase().contains("VIP") || clientName.contains("기업");
+
+            BigDecimal platformFeeRate;
+            BigDecimal preferenceRate;
+
+            // 💰 A님의 최종 수수료 정책 적용
+            if (isVip) {
+                platformFeeRate = new BigDecimal("0.010"); // VIP: 플랫폼 수수료 1.0%
+                preferenceRate = new BigDecimal("1.00");   // VIP: 환율 우대 100% (마진 0)
+                log.info("[Settlement] 👑 VIP 적용: {} (수수료 1%, 우대 100%)", clientName);
+            } else {
+                platformFeeRate = new BigDecimal("0.015"); // 일반: 플랫폼 수수료 1.5%
+                preferenceRate = new BigDecimal("0.90");   // 일반: 환율 우대 90%
+                log.info("[Settlement] 🥉 일반 적용: {} (수수료 1.5%, 우대 90%)", clientName);
+            }
+
             BigDecimal totalAmount = item.getAmount().getTotal();
             String currency = item.getCurrency();
-            BigDecimal settlementAmount;
+            BigDecimal settlementAmount = totalAmount; // 기본값
+            BigDecimal finalAppliedRate = liveUsdRate;
 
             if ("USD".equalsIgnoreCase(currency)) {
-                settlementAmount = totalAmount.multiply(liveUsdRate).setScale(0, RoundingMode.HALF_UP);
-                log.info("[Settlement] USD 결제 변환: {} USD -> {} KRW (주문번호: {})", totalAmount, settlementAmount, item.getId());
-            } else {
-                settlementAmount = totalAmount;
+                // 수익 창출 계산기 적용
+                settlementAmount = currencyCalculator.calculateFinalSettlementAmount(
+                        totalAmount, liveUsdRate, platformFeeRate, networkFee, spread, preferenceRate
+                );
+
+                // 적용된 최종 환율 계산
+                finalAppliedRate = currencyCalculator.calculateFinalRate(liveUsdRate, spread, preferenceRate);
+
+                log.info("[Settlement] 수수료 적용 완료: {} USD -> {} KRW (주문번호: {})", totalAmount, settlementAmount, item.getId());
             }
 
             settlementRepository.save(Settlement.builder()
@@ -84,9 +113,9 @@ public class SettlementEngineService {
                     .currency(currency)
                     .settlementAmount(settlementAmount)
                     .baseRate(liveUsdRate)
-                    .finalAppliedRate(liveUsdRate)
-                    .preferredRate(BigDecimal.ZERO)
-                    .spreadFee(BigDecimal.ZERO)
+                    .finalAppliedRate(finalAppliedRate)
+                    .preferredRate(preferenceRate)
+                    .spreadFee(spread)
                     .status(SettlementStatus.PENDING)
                     .build());
         });
@@ -128,10 +157,8 @@ public class SettlementEngineService {
         }
     }
 
-    // 🚨 [핵심 추가] 테스트 결제 데이터를 강제로 DB에 밀어넣는 메서드입니다!
     @Transactional
     public void createTestSettlement(String orderId, String clientName, BigDecimal amount, String currency, SettlementStatus status) {
-        // DB 제약조건(NOT NULL)을 피하기 위해 환율 관련 필드들에 기본값을 꽉꽉 채웠습니다.
         settlementRepository.save(Settlement.builder()
                 .orderId(orderId)
                 .transactionId("TX-" + System.currentTimeMillis())

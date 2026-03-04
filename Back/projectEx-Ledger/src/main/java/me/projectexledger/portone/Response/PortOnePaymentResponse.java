@@ -1,4 +1,4 @@
-package me.projectexledger.infrastructure.external.portone.dto;
+package me.projectexledger.portone.Response;
 
 import lombok.*;
 import java.math.BigDecimal;

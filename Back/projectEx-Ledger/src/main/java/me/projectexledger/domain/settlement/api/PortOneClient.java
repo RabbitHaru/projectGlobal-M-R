@@ -1,7 +1,7 @@
 package me.projectexledger.domain.settlement.api;
 
 import lombok.extern.slf4j.Slf4j;
-import me.projectexledger.infrastructure.external.portone.dto.PortOnePaymentResponse;
+import me.projectexledger.portone.Response.PortOnePaymentResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;

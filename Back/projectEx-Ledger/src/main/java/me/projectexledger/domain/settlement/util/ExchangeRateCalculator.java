@@ -64,7 +64,7 @@ public class ExchangeRateCalculator {
         }
 
         // 🚨 API 호출 실패 또는 주말이라 데이터가 없을 때를 대비한 '안전 기본값'
-        log.info("[FX] 안전 기본 환율(1,350.00원)을 적용하여 정산을 진행합니다.");
-        return new BigDecimal("1350.00");
+        log.info("[FX] 안전 기본 환율(1450.00원)을 적용하여 정산을 진행합니다.");
+        return new BigDecimal("1450.00");
     }
 }
