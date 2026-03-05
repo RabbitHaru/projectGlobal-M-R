@@ -8,7 +8,6 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <ToastProvider>
-        {/* 알림 리스너는 백그라운드에서 SSE 신호를 항상 감시합니다. */}
         <NotificationCenter />
         <AppRoutes />
       </ToastProvider>

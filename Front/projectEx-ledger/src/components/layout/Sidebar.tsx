@@ -1,5 +1,13 @@
-import { Link } from "react-router-dom";
-import { LayoutDashboard, Home, Calculator, Globe, X } from "lucide-react";
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Home,
+  Calculator,
+  Globe,
+  X,
+  ClipboardList,
+} from "lucide-react";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -7,6 +15,8 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  const location = useLocation();
+
   return (
     <div
       className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-100 shadow-2xl transform transition-transform duration-300 ease-in-out ${
@@ -33,6 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <nav className="flex-1 px-4 space-y-1">
         <Link
           to="/"
+          onClick={onClose}
           className="flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all rounded-xl hover:bg-blue-50 text-slate-600 hover:text-blue-600 group"
         >
           <Home
@@ -50,6 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <Link
           to="/settlement"
+          onClick={onClose}
           className="flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all rounded-xl hover:bg-blue-50 text-slate-600 hover:text-blue-600 group"
         >
           <Calculator
@@ -61,6 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <Link
           to="/finance"
+          onClick={onClose}
           className="flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all rounded-xl hover:bg-blue-50 text-slate-600 hover:text-blue-600 group"
         >
           <Globe
@@ -71,8 +84,39 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </Link>
 
         <Link
+          to="/list"
+          onClick={onClose}
+          className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all rounded-xl group ${
+            location.pathname === "/list"
+              ? "bg-blue-50 text-blue-600"
+              : "text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+          }`}
+        >
+          <ClipboardList
+            size={18}
+            className={
+              location.pathname === "/list"
+                ? "text-blue-500"
+                : "text-slate-400 group-hover:text-blue-500"
+            }
+          />
+          내 정산 내역
+        </Link>
+
+        <div className="px-4 pt-6 pb-2">
+          <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+            Seller Area
+          </p>
+        </div>
+
+        <Link
           to="/seller/dashboard"
-          className="flex items-center gap-3 px-4 py-3 mt-4 text-sm font-bold text-blue-600 transition-all border border-blue-100 rounded-xl bg-blue-50"
+          onClick={onClose}
+          className={`flex items-center gap-3 px-4 py-3 text-sm font-bold transition-all border rounded-xl ${
+            location.pathname === "/seller/dashboard"
+              ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100"
+              : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"
+          }`}
         >
           <LayoutDashboard size={18} />
           셀러 대시보드
