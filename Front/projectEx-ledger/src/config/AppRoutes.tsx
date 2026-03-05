@@ -17,16 +17,17 @@ import SystemHealth from "../components/pages/admin/system/SystemHealth";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import ReconciliationList from "../pages/admin/ReconciliationList";
 import SellerDashboard from "../components/pages/remittance/SellerDashboard";
+import ReconciliationDetail from '../pages/admin/ReconciliationDetail';
 
 const AppRoutes = () => {
-  return (
-    <Routes>
-      {/* 누구나 접근 가능한 기본 렌딩 페이지 */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/dashboard" element={<AdminDashboard />} />
-      <Route path="/list" element={<ReconciliationList />} />
-      <Route path="/seller/dashboard" element={<SellerDashboard />} />
-
+    return (
+        <Routes>
+            {/* 누구나 접근 가능한 기본 렌딩 페이지 */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/dashboard" element={<AdminDashboard />} />
+            <Route path="/list" element={<ReconciliationList />} />
+            <Route path="/detail" element={<ReconciliationDetail/>} />
+            <Route path="/seller/dashboard" element={<SellerDashboard />} />
       {/* 인증 불필요 라우트 */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />

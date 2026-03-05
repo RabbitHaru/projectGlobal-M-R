@@ -48,9 +48,9 @@ public class Remittance extends BaseEntity {
     @Column(name = "remittance_fee", precision = 19, scale = 4)
     private BigDecimal remittanceFee;
 
-    // 5. 송금 상태 (문자열 잘림 방지를 위해 length=20 설정)
+    // 5. 송금 상태 (문자열 잘림 방지를 위해 length=30으로 확장)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private RemittanceStatus status;
 
     @Builder
@@ -66,7 +66,9 @@ public class Remittance extends BaseEntity {
         this.exchangeRate = exchangeRate;
         this.krwAmount = krwAmount;
         this.remittanceFee = remittanceFee != null ? remittanceFee : BigDecimal.ZERO;
-        this.status = status != null ? status : RemittanceStatus.REQUESTED;
+
+        // 🌟 수정됨: 초기 신청 시 기본 상태를 '승인 대기(WAITING)'로 설정
+        this.status = status != null ? status : RemittanceStatus.WAITING;
     }
 
     // 상태 업데이트 편의 메서드

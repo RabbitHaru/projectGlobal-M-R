@@ -30,7 +30,6 @@ public class RemittanceService {
     @Transactional
     public RemittanceDTO.Response processRemittanceRequest(String requesterId, RemittanceDTO.Request requestDTO) {
 
-        // 🌟 1단계: 승인 대기(WAITING_APPROVAL) 상태로 초기화하여 저장
         Remittance remittance = Remittance.builder()
                 .requesterId(requesterId)
                 .receiverName(requestDTO.getRecipientName())
@@ -41,7 +40,7 @@ public class RemittanceService {
                 .exchangeRate(requestDTO.getExchangeRate())
                 .remittanceFee(requestDTO.getFeeAmount())
                 .krwAmount(requestDTO.getTotalPayment())
-                .status(RemittanceStatus.WAITING_APPROVAL)
+                .status(RemittanceStatus.WAITING)
                 .build();
 
         remittanceRepository.save(remittance);

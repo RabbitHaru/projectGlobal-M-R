@@ -44,41 +44,35 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
               </Link>
             </div>
 
-            {/* 중앙 메뉴 (Desktop) */}
-            <nav className="items-center hidden gap-8 text-sm font-semibold md:flex text-slate-600">
-              <a href="#" className="transition-colors hover:text-teal-600">
-                서비스 소개
-              </a>
-              <a href="#" className="transition-colors hover:text-teal-600">
-                환율 정보
-              </a>
-              <a href="#" className="transition-colors hover:text-teal-600">
-                고객 지원
-              </a>
-            </nav>
+          {/* 중앙 메뉴 (Desktop) */}
+          <nav className="items-center hidden gap-8 text-sm font-semibold md:flex text-slate-600">
+            <a href="/dashboard" className="transition-colors hover:text-teal-600">정산요약</a>
+            <a href="/list" className="transition-colors hover:text-teal-600">정산리스트</a>
+            <a href="/detail" className="transition-colors hover:text-teal-600"></a>
+          </nav>
 
-            {/* 우측 버튼 (인증 상태 연동) */}
-            <div>
-              {token ? (
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("access_token");
-                    window.location.href = "/";
-                  }}
-                  className="px-5 py-2 text-sm font-bold text-white transition-all rounded-md shadow-sm bg-slate-600 hover:bg-slate-700"
-                >
-                  로그아웃
+          {/* 우측 버튼 */}
+          <div>
+            {token ? (
+              <button
+                onClick={() => {
+                  localStorage.removeItem('access_token');
+                  window.location.href = '/';
+                }}
+                className="px-5 py-2 text-sm font-bold text-white transition-all bg-slate-600 rounded-md shadow-sm hover:bg-slate-700"
+              >
+                로그아웃
+              </button>
+            ) : (
+              <Link to="/login">
+                <button className="px-5 py-2 text-sm font-bold text-white transition-all bg-teal-700 rounded-md shadow-sm hover:bg-teal-800">
+                  로그인/회원가입
                 </button>
-              ) : (
-                <Link to="/login">
-                  <button className="px-5 py-2 text-sm font-bold text-white transition-all bg-teal-700 rounded-md shadow-sm hover:bg-teal-800">
-                    로그인/회원가입
-                  </button>
-                </Link>
-              )}
-            </div>
+              </Link>
+            )}
           </div>
-        </header>
+        </div>
+      </header>
 
         {/* 메인 콘텐츠 영역 */}
         <main className="flex-grow">{children}</main>

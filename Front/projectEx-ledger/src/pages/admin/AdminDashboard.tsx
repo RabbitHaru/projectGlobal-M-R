@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Header from "../../components/layout/Header"; 
-import Footer from "../../components/layout/Footer"; 
+import CommonLayout from "../../components/layout/CommonLayout"; 
 
 export interface DashboardSummary {
   totalPaymentAmount: number;
@@ -49,9 +48,7 @@ const AdminDashboard: React.FC = () => {
   const actionRequiredCount = summary ? (summary.discrepancyCount + summary.failedRemittanceCount) : 0;
 
   return (
-    <div className="flex flex-col min-h-screen font-sans bg-slate-50">
-      <Header />
-
+    <CommonLayout>
       <main className="flex-grow w-full px-4 py-8 mx-auto space-y-6 max-w-7xl sm:px-6 lg:px-8">
         <section className="flex items-center justify-between p-6 bg-white border border-gray-100 shadow-sm rounded-xl">
           <div>
@@ -70,16 +67,14 @@ const AdminDashboard: React.FC = () => {
         {summary ? (
           <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {/* 1. 전체 건수 & 누적 결제 금액 카드 */}
-            {/* 🌟 수정: flex-col justify-center 제거하여 옆 카드들과 시작 높이 동일하게 맞춤! */}
             <div className="p-8 bg-white border border-gray-100 shadow-sm rounded-xl">
               <h3 className="text-sm font-semibold text-gray-500">전체 처리 건수</h3>
-              {/* 🌟 수정: mt-2 -> mt-4 로 변경하여 "45"의 높이를 "37", "3"과 완벽히 일치시킴! */}
               <div className="flex items-baseline gap-2 mt-4">
                 <p className="text-4xl font-extrabold text-gray-900 tabular-nums">{summary.totalRemittanceCount}</p>
                 <p className="text-sm font-medium text-gray-400">건</p>
               </div>
               <div className="pt-6 mt-6 border-t border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-500">누적 결제 금액</h3>
+                <h3 className="text-sm font-semibold text-gray-500">누적 정산 금액</h3>
                 <p className="mt-2 text-4xl font-extrabold text-gray-900 tabular-nums">
                   {summary.totalPaymentAmount?.toLocaleString()} <span className="ml-1 text-xl font-medium text-gray-400">원</span>
                 </p>
@@ -155,9 +150,7 @@ const AdminDashboard: React.FC = () => {
           </a>
         </div>
       </main>
-
-      <Footer />
-    </div>
+    </CommonLayout>
   );
 };
 

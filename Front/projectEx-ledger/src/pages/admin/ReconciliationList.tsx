@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import Header from "../../components/layout/Header"; 
-import Footer from "../../components/layout/Footer"; 
+import React, { useState, useEffect, useRef } from 'react';
+import CommonLayout from "../../components/layout/CommonLayout"; 
 
 export interface ReconciliationData {
   id: number;
@@ -17,19 +16,45 @@ export interface ReconciliationData {
 const ReconciliationList: React.FC = () => {
   const [data, setData] = useState<ReconciliationData[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  
+  // 🌟 검색 조건 상태 추가
+  const [searchType, setSearchType] = useState<string>('ALL'); 
   const [searchQuery, setSearchQuery] = useState<string>(''); 
+  
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [testStatus, setTestStatus] = useState<string>('PENDING');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 10; 
 
-  // 🌟 '송금 중' 제거
+  // 🌟 세 개의 커스텀 드롭다운을 위한 상태와 Ref
+  const [isSearchTypeDropdownOpen, setIsSearchTypeDropdownOpen] = useState<boolean>(false);
+  const [isTestDropdownOpen, setIsTestDropdownOpen] = useState<boolean>(false);
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
+  
+  const searchTypeDropdownRef = useRef<HTMLDivElement>(null);
+  const testDropdownRef = useRef<HTMLDivElement>(null);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
   const statusKoreanMap: { [key: string]: string } = {
     PENDING: '송금 대기',
     COMPLETED: '정산 완료',
     WAITING: '승인 대기',
     FAILED: '송금 실패',
     DISCREPANCY: '오차 발생',
+  };
+
+  const filterMap: { [key: string]: string } = {
+    ALL: '전체 상태 보기',
+    ...statusKoreanMap
+  };
+
+  // 🌟 검색 조건 매핑
+  const searchTypeMap: { [key: string]: string } = {
+    ALL: '전체 검색',
+    CLIENT_NAME: '고객명',
+    BANK_NAME: '은행명',
+    ACCOUNT_NUMBER: '계좌번호',
+    ORDER_ID: '결제번호',
   };
 
   const fetchReconciliationData = async () => {
@@ -78,9 +103,26 @@ const ReconciliationList: React.FC = () => {
   };
 
   useEffect(() => { fetchReconciliationData(); }, []);
-  useEffect(() => { setCurrentPage(1); }, [filterStatus, searchQuery]); 
+  // 검색 조건(searchType)이 바뀌어도 1페이지로 돌아가도록 추가
+  useEffect(() => { setCurrentPage(1); }, [filterStatus, searchQuery, searchType]); 
 
-  // 🌟 '송금 중(IN_PROGRESS)' 뱃지 로직 제거
+  // 외부 클릭 시 모든 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchTypeDropdownRef.current && !searchTypeDropdownRef.current.contains(event.target as Node)) {
+        setIsSearchTypeDropdownOpen(false);
+      }
+      if (testDropdownRef.current && !testDropdownRef.current.contains(event.target as Node)) {
+        setIsTestDropdownOpen(false);
+      }
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target as Node)) {
+        setIsFilterDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'COMPLETED': return <span className="px-3 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-full">정산 완료</span>;
@@ -96,80 +138,181 @@ const ReconciliationList: React.FC = () => {
     alert(`대사 상세 내역 #${id} 건을 조회합니다.`);
   };
 
+  // 🌟 선택된 조건에 맞춘 필터링 로직
   const filteredData = [...data]
     .sort((a, b) => b.id - a.id)
     .filter(d => filterStatus === 'ALL' || d.status === filterStatus)
     .filter(d => {
       if (!searchQuery.trim()) return true;
       const lowerQuery = searchQuery.toLowerCase();
-      const matchClientName = d.clientName?.toLowerCase().includes(lowerQuery) || false;
-      const matchOrderId = d.orderId?.toLowerCase().includes(lowerQuery) || false;
-      const matchAccount = d.accountNumber?.includes(lowerQuery) || false;
-      const matchBankName = d.bankName?.toLowerCase().includes(lowerQuery) || false;
+
+      if (searchType === 'CLIENT_NAME') return d.clientName?.toLowerCase().includes(lowerQuery) || false;
+      if (searchType === 'BANK_NAME') return d.bankName?.toLowerCase().includes(lowerQuery) || false;
+      if (searchType === 'ACCOUNT_NUMBER') return d.accountNumber?.includes(lowerQuery) || false;
+      if (searchType === 'ORDER_ID') return d.orderId?.toLowerCase().includes(lowerQuery) || false;
       
-      return matchClientName || matchOrderId || matchAccount || matchBankName;
+      // ALL인 경우 기존 통합 검색 유지
+      return (d.clientName?.toLowerCase().includes(lowerQuery) || false) ||
+             (d.orderId?.toLowerCase().includes(lowerQuery) || false) ||
+             (d.accountNumber?.includes(lowerQuery) || false) ||
+             (d.bankName?.toLowerCase().includes(lowerQuery) || false);
     });
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
   const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="flex flex-col min-h-screen font-sans bg-slate-50">
-      <Header />
-      
+    <CommonLayout>
       <main className="flex-grow w-full px-4 py-8 mx-auto max-w-7xl">
         <div className="p-8 bg-white border border-gray-200 shadow-sm rounded-xl">
-          <div className="flex flex-col justify-between gap-4 mb-8 md:flex-row md:items-end">
-            <div>
+          <div className="flex flex-col justify-between gap-4 mb-8 xl:flex-row xl:items-end">
+            <div className="flex-shrink-0">
               <h2 className="text-2xl font-bold text-gray-900">포트원 결제 대사 리스트</h2>
               <p className="mt-1 text-sm text-gray-500">포트원(V2) 결제 내역과 내부 송금 DB를 대조합니다.</p>
             </div>
             
-            <div className="flex flex-col items-center w-full gap-3 sm:flex-row md:w-auto">
-              <div className="relative w-full sm:w-72">
-                <input
-                  type="text"
-                  placeholder="고객명, 은행명, 계좌, 결제번호 검색"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full py-2 pr-4 text-sm transition border border-gray-300 rounded-md shadow-sm outline-none pl-9 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                />
-                <span className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </span>
+            <div className="flex flex-col items-center w-full gap-3 lg:flex-row lg:justify-end">
+              
+              {/* 🌟 1. 검색 조건 드롭다운이 포함된 커스텀 검색창 */}
+              <div className="flex items-center w-full sm:w-[380px] bg-white border border-gray-300 rounded-md shadow-sm transition focus-within:ring-1 focus-within:ring-teal-500 focus-within:border-teal-500">
+                
+                {/* 검색 조건 선택 드롭다운 */}
+                <div className="relative border-r border-gray-300" ref={searchTypeDropdownRef}>
+                  <button
+                    onClick={() => setIsSearchTypeDropdownOpen(!isSearchTypeDropdownOpen)}
+                    className="flex items-center justify-between w-[110px] px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-l-md hover:bg-gray-100 outline-none"
+                  >
+                    <span>{searchTypeMap[searchType]}</span>
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isSearchTypeDropdownOpen ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor" 
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {isSearchTypeDropdownOpen && (
+                    <div className="absolute left-0 z-20 w-32 py-1 mt-1 bg-white border border-gray-200 rounded-md shadow-lg top-full">
+                      {Object.entries(searchTypeMap).map(([key, value]) => (
+                        <button
+                          key={key}
+                          onClick={() => {
+                            setSearchType(key);
+                            setIsSearchTypeDropdownOpen(false);
+                          }}
+                          className="block w-full px-4 py-2 text-sm text-left text-gray-700 transition hover:bg-teal-50 hover:text-[#007b70]"
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 검색어 입력칸 */}
+                <div className="relative flex-grow">
+                  <span className="absolute text-gray-400 transform -translate-y-1/2 left-2 top-1/2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="검색어를 입력하세요"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full py-2 pl-8 pr-3 text-sm bg-transparent border-none outline-none rounded-r-md"
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center gap-1 p-1 border border-gray-200 rounded-md shadow-inner bg-gray-50">
-                <select 
-                  className="px-2 py-1 text-xs font-semibold text-teal-700 bg-transparent border-none outline-none cursor-pointer"
-                  value={testStatus}
-                  onChange={(e) => setTestStatus(e.target.value)}
-                >
-                  <option value="PENDING">송금 대기</option>
-                  <option value="COMPLETED">정산 완료</option>
-                  <option value="WAITING">승인 대기</option>
-                  <option value="FAILED">송금 실패</option>
-                  <option value="DISCREPANCY">오차 발생</option>
-                </select>
-                <button onClick={handleCreateTestData} className="px-3 py-1 text-xs font-bold text-white bg-[#007b70] rounded hover:bg-teal-800 transition shadow-sm whitespace-nowrap">주입 💉</button>
-              </div>
-
-              <select 
-                className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-md shadow-sm outline-none focus:ring-1 focus:ring-teal-500"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+              {/* 2. 송금 대기 (테스트 데이터 주입) 커스텀 드롭다운 */}
+              {/* <div 
+                ref={testDropdownRef} 
+                className="flex items-center w-full gap-1 p-1 bg-white border border-gray-200 rounded-md shadow-sm sm:w-auto"
               >
-                <option value="ALL">전체 상태 보기</option>
-                <option value="PENDING">송금 대기</option>
-                <option value="COMPLETED">정산 완료</option>
-                <option value="WAITING">승인 대기</option>
-                <option value="FAILED">송금 실패</option>
-                <option value="DISCREPANCY">오차 발생</option>
-              </select>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsTestDropdownOpen(!isTestDropdownOpen)}
+                    className="flex items-center justify-between gap-2 py-1.5 px-3 text-sm font-semibold text-[#007b70] bg-white rounded outline-none hover:bg-gray-50 transition min-w-[90px]"
+                  >
+                    <span>{statusKoreanMap[testStatus]}</span>
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      className={`w-4 h-4 transition-transform duration-200 ${isTestDropdownOpen ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor" 
+                      strokeWidth={2.5}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
 
-              <button onClick={fetchReconciliationData} className="px-4 py-2 text-sm font-medium text-white bg-[#007b70] rounded-md shadow-sm hover:bg-teal-800 transition whitespace-nowrap">대사 로직 재실행</button>
+                  {isTestDropdownOpen && (
+                    <div className="absolute left-0 z-20 w-32 py-1 mt-2 bg-white border border-gray-200 rounded-md shadow-lg top-full">
+                      {Object.entries(statusKoreanMap).map(([key, value]) => (
+                        <button
+                          key={key}
+                          onClick={() => {
+                            setTestStatus(key);
+                            setIsTestDropdownOpen(false);
+                          }}
+                          className="block w-full px-4 py-2 text-sm text-left text-gray-700 transition hover:bg-teal-50 hover:text-[#007b70]"
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button onClick={handleCreateTestData} className="px-3 py-1.5 ml-1 text-sm font-bold text-white bg-[#007b70] rounded-md hover:bg-teal-800 transition shadow-sm whitespace-nowrap">
+                  주입 💉
+                </button>
+              </div> */}
+
+              {/* 3. 전체 상태 보기 (필터) 커스텀 드롭다운 */}
+              <div className="relative w-full sm:w-auto" ref={filterDropdownRef}>
+                <button
+                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                  className="flex items-center justify-between w-full gap-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-md shadow-sm outline-none hover:bg-gray-50 transition min-w-[130px]"
+                >
+                  <span className="font-medium text-gray-700">{filterMap[filterStatus]}</span>
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isFilterDropdownOpen ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor" 
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isFilterDropdownOpen && (
+                  <div className="absolute right-0 z-20 w-full py-1 mt-1 bg-white border border-gray-200 rounded-md shadow-lg top-full min-w-[130px]">
+                    {Object.entries(filterMap).map(([key, value]) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          setFilterStatus(key);
+                          setIsFilterDropdownOpen(false);
+                        }}
+                        className="block w-full px-4 py-2 text-sm text-left text-gray-700 transition hover:bg-teal-50 hover:text-[#007b70]"
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button onClick={fetchReconciliationData} className="w-full px-4 py-2 text-sm font-medium text-white bg-[#007b70] rounded-md shadow-sm sm:w-auto hover:bg-teal-800 transition whitespace-nowrap">대사 재실행</button>
             </div>
           </div>
 
@@ -232,9 +375,7 @@ const ReconciliationList: React.FC = () => {
           )}
         </div>
       </main>
-
-      <Footer />
-    </div>
+    </CommonLayout>
   );
 };
 
