@@ -45,7 +45,7 @@ public class RemittanceService {
                 .exchangeRate(requestDTO.getExchangeRate())
                 .remittanceFee(requestDTO.getFeeAmount())
                 .krwAmount(requestDTO.getTotalPayment())
-                .status(RemittanceStatus.REQUESTED)
+                .status(RemittanceStatus.WAITING)
                 .build();
 
         remittanceRepository.save(remittance);

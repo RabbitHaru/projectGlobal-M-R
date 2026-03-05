@@ -16,6 +16,7 @@ import AdminLogList from '../components/pages/admin/system/AdminLogList';
 import SystemHealth from '../components/pages/admin/system/SystemHealth';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import ReconciliationList from '../pages/admin/ReconciliationList';
+import ReconciliationDetail from '../pages/admin/ReconciliationDetail';
 
 
 const AppRoutes = () => {
@@ -25,6 +26,7 @@ const AppRoutes = () => {
             <Route path="/" element={<LandingPage />} />
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/list" element={<ReconciliationList />} />
+            <Route path="/detail" element={<ReconciliationDetail/>} />
 
             {/* 인증 불필요 라우트 */}
             <Route element={<AuthLayout />}>

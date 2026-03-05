@@ -6,11 +6,12 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum RemittanceStatus {
-    REQUESTED("송금 신청 완료"),
-    PENDING("은행 처리 대기중"),
-    COMPLETED("해외 송금 완료"),
+    PENDING("송금 대기"),
+    COMPLETED("정산 완료"),
+    WAITING("승인 대기"),
     FAILED("송금 실패"),
-    REJECTED("관리자 반려");
+    DISCREPANCY("오차 발생"),
+    WAITING_USER_CONSENT("유저 동의 대기"); // 관리자 수정 후 유저 동의 대기 상태
 
     private final String description;
 }

@@ -30,7 +30,7 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
           <nav className="items-center hidden gap-8 text-sm font-semibold md:flex text-slate-600">
             <a href="/dashboard" className="transition-colors hover:text-teal-600">정산요약</a>
             <a href="/list" className="transition-colors hover:text-teal-600">정산리스트</a>
-            <a href="#" className="transition-colors hover:text-teal-600">고객 지원</a>
+            <a href="/detail" className="transition-colors hover:text-teal-600"></a>
           </nav>
 
           {/* 우측 버튼 */}
