@@ -27,35 +27,31 @@ const SellerDashboard = () => {
   };
 
   useEffect(() => {
-    const eventSource = new EventSource(
-      "http://localhost:8080/api/v1/notifications/subscribe",
-    );
+    const eventSource = new EventSource("/api/v1/notifications/subscribe");
 
-    eventSource.addEventListener("connect", (e: any) => {
-      console.log("✅ 알림 서버 연결 성공:", e.data);
-    });
+    eventSource.addEventListener("remittance_update", (event: any) => {
+      const receivedMessage = event.data;
+      console.log("🔔 관리자 수신 알림:", receivedMessage);
 
-    eventSource.addEventListener("remittance_update", (e: any) => {
-      const newStatus = e.data as RemittanceStatus;
-      const validStatuses: RemittanceStatus[] = [
-        "WAITING",
-        "DISCREPANCY",
-        "WAITING_USER_CONSENT",
-        "PENDING",
-        "COMPLETED",
-        "FAILED",
-      ];
-
-      if (validStatuses.includes(newStatus)) {
-        setCurrentStatus(newStatus);
+      // 1. 상태가 바뀌었다면 대시보드 상태 업데이트
+      if (
+        [
+          "WAITING",
+          "DISCREPANCY",
+          "WAITING_USER_CONSENT",
+          "PENDING",
+          "COMPLETED",
+          "FAILED",
+        ].includes(receivedMessage)
+      ) {
+        setCurrentStatus(receivedMessage as RemittanceStatus);
       }
-      setNotifications((prev) => [e.data, ...prev].slice(0, 5));
-    });
 
-    eventSource.onerror = (e) => {
-      console.error("❌ SSE 연결 오류", e);
-      eventSource.close();
-    };
+      // 2. 알림 배지 및 알림 리스트 업데이트
+      setNotifications((prev) => [receivedMessage, ...prev].slice(0, 5));
+
+      // (선택) 여기에 Toast UI 등을 연결하여 화면 하단에 팝업을 띄울 수 있습니다.
+    });
 
     return () => eventSource.close();
   }, []);
@@ -157,7 +153,7 @@ const SellerDashboard = () => {
         isOpen={isConsentModalOpen}
         onClose={() => setIsConsentModalOpen(false)}
         transactionId="TRX-20260305-88A2"
-        initialReceiverName={verifiedName} 
+        initialReceiverName={verifiedName}
         adjustedAmount={18130000}
         onSuccess={() => setCurrentStatus("PENDING")}
       />
