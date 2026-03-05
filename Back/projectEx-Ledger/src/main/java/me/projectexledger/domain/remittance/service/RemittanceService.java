@@ -29,7 +29,6 @@ public class RemittanceService {
     private final RemittanceRepository remittanceRepository;
     private final CurrencyCalculator currencyCalculator;
 
-    // 🌟 2. DB 설정값을 가져오는 서비스가 주입되어야 합니다!
     private final SystemConfigService configService;
 
     @Transactional
@@ -60,7 +59,8 @@ public class RemittanceService {
     }
 
     // 💸 🌟 3. 숫자가 아니라 DB(configService)에서 값을 꺼내오도록 바뀐 로직!
-    public FeeDTO.Response calculateRemittanceFee(BigDecimal foreignAmount, BigDecimal baseRate, String clientGrade) {
+    public FeeDTO.Response calculateRemittanceFee(BigDecimal foreignAmount, BigDecimal baseRate, String currency, String clientGrade) {
+        boolean is100Unit = currency.contains("(10  0)") || currency.equals("JPY") || currency.equals("IDR");
 
         // 공통 스프레드 마진
         BigDecimal spread = configService.getBigDecimalConfig("BANK_SPREAD_RATE", "20.0");
@@ -81,7 +81,12 @@ public class RemittanceService {
         }
 
         BigDecimal finalAppliedRate = currencyCalculator.calculateFinalRate(baseRate, spread, preferenceRate);
-        BigDecimal baseKrwAmount = foreignAmount.multiply(finalAppliedRate).setScale(0, RoundingMode.HALF_UP);
+
+        BigDecimal adjustedAmount = is100Unit ?
+                foreignAmount.divide(new BigDecimal("100"), 10, RoundingMode.HALF_UP) :
+                foreignAmount;
+
+        BigDecimal baseKrwAmount = adjustedAmount.multiply(finalAppliedRate).setScale(0, RoundingMode.HALF_UP);
         BigDecimal processingFee = baseKrwAmount.multiply(processingFeeRate).setScale(0, RoundingMode.HALF_UP);
 
         BigDecimal totalFeeAmount = telegraphicFee.add(processingFee);

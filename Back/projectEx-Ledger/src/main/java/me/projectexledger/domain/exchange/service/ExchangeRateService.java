@@ -215,9 +215,9 @@ public class ExchangeRateService {
         }
     }
 
-    private void saveToCache(List<ExchangeRateDTO> rates) {
+        private void saveToCache(List<ExchangeRateDTO> rates) {
         try {
-            redisTemplate.opsForValue().set(REDIS_KEY, rates, Duration.ofMinutes(10));
+            redisTemplate.opsForValue().set(REDIS_KEY, rates, Duration.ofHours(1));
         } catch (Exception ignored) {
         }
     }
