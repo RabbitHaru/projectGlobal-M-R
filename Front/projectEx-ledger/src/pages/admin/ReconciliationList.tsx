@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CommonLayout from "../../components/layout/CommonLayout"; 
 
 export interface ReconciliationData {
@@ -14,6 +15,7 @@ export interface ReconciliationData {
 }
 
 const ReconciliationList: React.FC = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<ReconciliationData[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   
@@ -135,6 +137,8 @@ const ReconciliationList: React.FC = () => {
   };
 
   const handleDetailClick = (id: number) => {
+    // 클릭 시 상세 페이지(ReconciliationDetail)로 이동하며 ID를 파라미터로 전달
+    navigate(`/admin/settlement/${id}`);
     alert(`대사 상세 내역 #${id} 건을 조회합니다.`);
   };
 
