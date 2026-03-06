@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calculator, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Calculator } from "lucide-react"; // 상세보기 아이콘은 제거하고 정산 아이콘만 유지
 import { formatCurrency, getCurrencyName } from "../../../utils/formatter";
 import type { ExchangeRate } from "../../../types/exchange";
 import ExchangeRateHistoryModal from "./ExchangeRateHistoryModal";
@@ -12,18 +12,16 @@ interface ExchangeRateTableProps {
 }
 
 const ExchangeRateTable: React.FC<ExchangeRateTableProps> = ({
-  rates = [],
+  rates,
   selectedCurrency,
   onRowClick,
 }) => {
   const navigate = useNavigate();
   const [historyTarget, setHistoryTarget] = useState<string | null>(null);
 
-  // 🌟 정렬 로직 수정: 변동률(changeRate)이 높은 순서대로 정렬
-  const sortedRates =
-    rates && rates.length > 0
-      ? [...rates].sort((a, b) => (b.changeRate || 0) - (a.changeRate || 0))
-      : [];
+  const sortedRates = [...rates].sort((a, b) =>
+    a.curUnit.localeCompare(b.curUnit),
+  );
 
   return (
     <div className="w-full">
@@ -34,85 +32,60 @@ const ExchangeRateTable: React.FC<ExchangeRateTableProps> = ({
               <th className="px-6 py-4 text-center">코드</th>
               <th className="px-6 py-4">국가/통화명</th>
               <th className="px-6 py-4 text-right">현재 환율</th>
-              {/* 🌟 변동률 컬럼 추가 */}
-              <th className="px-6 py-4 text-right">변동률</th>
               <th className="px-6 py-4 text-center">업데이트 (KST)</th>
-              <th className="px-6 py-4 text-center">정산</th>
+              <th className="px-6 py-4 text-center">작업</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {sortedRates.map((rate) => {
               const isSelected = selectedCurrency === rate.curUnit;
-              const displayCode = rate.curUnit.split("(")[0];
-              const cRate = rate.changeRate || 0;
 
               return (
                 <tr
                   key={rate.curUnit}
-                  onClick={() => {
-                    onRowClick(rate.curUnit);
-                    setHistoryTarget(rate.curUnit);
-                  }}
-                  className={`group cursor-pointer transition-all duration-150 hover:bg-blue-50/40 ${
-                    isSelected
-                      ? "bg-blue-50/60 ring-1 ring-inset ring-blue-100"
-                      : "bg-white"
+                  onClick={() => onRowClick(rate.curUnit)}
+                  className={`group cursor-pointer transition-all duration-150 hover:bg-slate-50/80 ${
+                    isSelected ? "bg-blue-50/50" : "bg-white"
                   }`}
                 >
-                  <td className="px-6 py-6 font-black text-center text-slate-900">
-                    {displayCode}
+                  <td className="px-6 py-6 font-black text-center text-gray-900">
+                    {rate.curUnit.split("(")[0]}
                   </td>
+
+                  {/* 🌟 수정 1: 국가/통화명 클릭 시 상세보기 팝업 트리거 */}
                   <td className="px-6 py-6">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-800">
+                    <div className="flex flex-col items-start">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // 행 클릭 이벤트(차트 변경) 전파 방지
+                          setHistoryTarget(rate.curUnit);
+                        }}
+                        className="font-bold transition-colors text-slate-800 hover:text-blue-600 hover:underline decoration-2 underline-offset-4"
+                      >
                         {rate.curNm || getCurrencyName(rate.curUnit)}
-                      </span>
-                      <span className="text-[10px] text-slate-300 font-bold uppercase">
+                      </button>
+                      <span className="text-[10px] text-slate-300 font-bold uppercase tracking-tight">
                         KOREAEXIM SOURCE
                       </span>
                     </div>
                   </td>
+
                   <td className="px-6 py-6 text-right">
-                    <span className="font-mono text-base font-black text-slate-900">
+                    <span className="font-mono text-base font-black text-blue-600">
                       {formatCurrency(rate.rate, rate.curUnit)}{" "}
-                      <small className="text-[10px] ml-0.5 text-slate-400">
-                        {displayCode}
+                      <small className="text-[10px] ml-0.5 text-blue-400">
+                        {rate.curUnit.split("(")[0]}
                       </small>
                     </span>
                   </td>
 
-                  {/* 🌟 변동률 표시 셀 추가 */}
-                  <td className="px-6 py-6 text-right">
-                    <div
-                      className={`flex items-center justify-end gap-1 font-black ${
-                        cRate > 0
-                          ? "text-red-500"
-                          : cRate < 0
-                            ? "text-blue-500"
-                            : "text-slate-400"
-                      }`}
-                    >
-                      {cRate > 0 ? (
-                        <TrendingUp size={14} />
-                      ) : cRate < 0 ? (
-                        <TrendingDown size={14} />
-                      ) : (
-                        <Minus size={14} />
-                      )}
-                      <span className="font-mono">
-                        {cRate > 0 ? "+" : ""}
-                        {cRate.toFixed(2)}%
-                      </span>
-                    </div>
-                  </td>
-
                   <td className="px-6 py-6 text-center">
                     <span className="text-[10px] text-slate-400 font-black bg-slate-50 px-2.5 py-1 rounded-lg tracking-widest">
-                      {rate.updatedAt
-                        ? rate.updatedAt.split(" ")[1]
-                        : "11:00:00"}
+                      {rate.updatedAt.split(" ")[1]}
                     </span>
                   </td>
+
+                  {/* 🌟 수정 2: '정산' 버튼만 남기고 텍스트 간소화 */}
                   <td
                     className="px-6 py-6"
                     onClick={(e) => e.stopPropagation()}

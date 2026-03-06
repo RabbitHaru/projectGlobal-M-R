@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import CommonLayout from "../../layout/CommonLayout";
 import SettlementDetailModal from "./SettlementDetailModal";
+import { requestPortonePayment } from "../../../utils/portonePayment";
+import { useToast } from "../../../components/notification/ToastProvider";
 import {
   Search,
   Filter,
@@ -10,6 +12,7 @@ import {
   CheckCircle,
   Clock,
   Wallet,
+  CreditCard,
 } from "lucide-react";
 import axios from "axios";
 
@@ -26,7 +29,11 @@ interface SettlementRecord {
   createdAt: string;
   amountUsd: number;
   exchangeRate: number;
-  feeAmountKrw: number;
+  feeBreakdown: {
+    platform: number;
+    network: number;
+    vat: number;
+  };
   finalAmountKrw: number;
   status: RemittanceStatus;
 }
@@ -38,47 +45,55 @@ const MySettlementList = () => {
   const [selectedRecord, setSelectedRecord] = useState<SettlementRecord | null>(
     null,
   );
+  const { showToast } = useToast();
+
+  const fetchMyRecords = async () => {
+    try {
+      const response = await axios.get("/api/v1/remittance/my");
+      setRecords(response.data);
+    } catch (err) {
+      const dummy: SettlementRecord[] = [
+        {
+          id: "TRX-20260305-88A2",
+          createdAt: "2026-03-05 15:25",
+          amountUsd: 12450,
+          exchangeRate: 1456.2,
+          feeBreakdown: { platform: 8500, network: 2500, vat: 1000 },
+          finalAmountKrw: 18130000,
+          status: "WAITING_USER_CONSENT",
+        },
+        {
+          id: "TRX-20260301-77B1",
+          createdAt: "2026-03-01 10:10",
+          amountUsd: 5200,
+          exchangeRate: 1450.0,
+          feeBreakdown: { platform: 5000, network: 2500, vat: 1000 },
+          finalAmountKrw: 7540000,
+          status: "COMPLETED",
+        },
+      ];
+      setRecords(dummy);
+    }
+  };
 
   useEffect(() => {
-    const fetchMyRecords = async () => {
-      try {
-        const response = await axios.get("/api/v1/remittance/my");
-        setRecords(response.data);
-      } catch (err) {
-        const dummy: SettlementRecord[] = [
-          {
-            id: "TRX-20260305-88A2",
-            createdAt: "2026-03-05 15:25",
-            amountUsd: 12450,
-            exchangeRate: 1456.2,
-            feeAmountKrw: 12000,
-            finalAmountKrw: 18130000,
-            status: "WAITING_USER_CONSENT",
-          },
-          {
-            id: "TRX-20260301-77B1",
-            createdAt: "2026-03-01 10:10",
-            amountUsd: 5200,
-            exchangeRate: 1450.0,
-            feeAmountKrw: 8500,
-            finalAmountKrw: 7540000,
-            status: "COMPLETED",
-          },
-          {
-            id: "TRX-20260228-44C9",
-            createdAt: "2026-02-28 18:40",
-            amountUsd: 3100,
-            exchangeRate: 1450.0,
-            feeAmountKrw: 5000,
-            finalAmountKrw: 4495000,
-            status: "PENDING",
-          },
-        ];
-        setRecords(dummy);
-      }
-    };
     fetchMyRecords();
   }, []);
+
+  const handlePayment = async () => {
+    try {
+      await requestPortonePayment({
+        amount: 1000, // 테스트 결제 금액
+        orderName: "해외 송금 예치금 결제",
+        buyerName: "Member C",
+        buyerEmail: "member_c@exledger.com",
+      });
+      showToast("결제가 성공적으로 완료되었습니다.", "SUCCESS");
+      fetchMyRecords(); // 목록 새로고침
+    } catch (err: any) {
+      showToast(err, "ERROR");
+    }
+  };
 
   const openDetail = (record: SettlementRecord) => {
     setSelectedRecord(record);
@@ -146,9 +161,17 @@ const MySettlementList = () => {
             </p>
           </div>
 
-          <button className="flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 text-white rounded-2xl text-sm font-bold hover:bg-slate-800 transition-all shadow-xl">
-            <Download size={18} /> 보고서 다운로드
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handlePayment}
+              className="flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 transition-all shadow-xl"
+            >
+              <CreditCard size={18} /> 결제 테스트
+            </button>
+            <button className="flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 text-white rounded-2xl text-sm font-bold hover:bg-slate-800 transition-all shadow-xl">
+              <Download size={18} /> 보고서 다운로드
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8">
@@ -176,10 +199,10 @@ const MySettlementList = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-50">
-                    <th className="px-8 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                    <th className="px-8 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">
                       신청 일시
                     </th>
-                    <th className="px-8 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                    <th className="px-8 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">
                       결제번호
                     </th>
                     <th className="px-8 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">
@@ -204,10 +227,10 @@ const MySettlementList = () => {
                         key={item.id}
                         className="transition-all hover:bg-slate-50/50 group"
                       >
-                        <td className="px-8 py-6 text-sm font-bold text-slate-400">
+                        <td className="px-8 py-6 text-sm font-bold text-center text-slate-400">
                           {item.createdAt}
                         </td>
-                        <td className="px-8 py-6 text-sm font-black text-slate-900">
+                        <td className="px-8 py-6 text-sm font-black text-center text-slate-900">
                           {item.id}
                         </td>
                         <td className="px-8 py-6 text-sm font-black text-right text-slate-900">
@@ -216,13 +239,12 @@ const MySettlementList = () => {
                         <td className="px-8 py-6 text-sm font-black text-right text-teal-600">
                           {item.finalAmountKrw.toLocaleString()} 원
                         </td>
-                        <td className="px-8 py-6">
+                        <td className="px-8 py-6 text-center">
                           <div className="flex justify-center">
                             <span
                               className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black border ${style.bg} ${style.text} border-current/10`}
                             >
-                              {style.icon}
-                              {style.label}
+                              {style.icon} {style.label}
                             </span>
                           </div>
                         </td>

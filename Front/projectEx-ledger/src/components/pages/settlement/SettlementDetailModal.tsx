@@ -1,9 +1,6 @@
 import React from "react";
 import {
   X,
-  Calendar,
-  Hash,
-  User,
   DollarSign,
   ArrowRight,
   ShieldCheck,
@@ -29,7 +26,11 @@ interface DetailModalProps {
     createdAt: string;
     amountUsd: number;
     exchangeRate: number;
-    feeAmountKrw: number; // 🌟 수수료 필드 추가
+    feeBreakdown: {
+      platform: number;
+      network: number;
+      vat: number;
+    };
     finalAmountKrw: number;
     status: RemittanceStatus;
   } | null;
@@ -41,6 +42,11 @@ const SettlementDetailModal: React.FC<DetailModalProps> = ({
   data,
 }) => {
   if (!isOpen || !data) return null;
+
+  const totalFee =
+    data.feeBreakdown.platform +
+    data.feeBreakdown.network +
+    data.feeBreakdown.vat;
 
   const getStatusInfo = (status: RemittanceStatus) => {
     switch (status) {
@@ -104,7 +110,7 @@ const SettlementDetailModal: React.FC<DetailModalProps> = ({
           </button>
         </div>
 
-        <div className="p-8 space-y-8">
+        <div className="p-8 space-y-6">
           <div
             className={`p-5 rounded-[24px] border ${statusInfo.bg} border-current/10 flex items-center justify-between`}
           >
@@ -136,19 +142,36 @@ const SettlementDetailModal: React.FC<DetailModalProps> = ({
                 1 USD = {data.exchangeRate.toLocaleString()} KRW
               </span>
             </div>
-            {/* 🌟 수수료 행 추가 */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2 font-bold text-slate-400">
-                <Percent size={16} /> 서비스 수수료
-              </span>
-              <span className="font-black text-red-500">
-                - {data.feeAmountKrw.toLocaleString()} KRW
-              </span>
+
+            {/* 🌟 수수료 상세 명세 영역 */}
+            <div className="p-6 bg-slate-50 rounded-[28px] space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/50">
+                <span className="flex items-center gap-2 text-xs font-black text-slate-500">
+                  <Percent size={14} /> 총 차감 수수료
+                </span>
+                <span className="text-sm font-black text-red-500">
+                  - {totalFee.toLocaleString()} KRW
+                </span>
+              </div>
+              <div className="pt-1 space-y-2">
+                <div className="flex justify-between text-[11px] font-bold text-slate-400">
+                  <span>플랫폼 서비스 이용료</span>
+                  <span>{data.feeBreakdown.platform.toLocaleString()} KRW</span>
+                </div>
+                <div className="flex justify-between text-[11px] font-bold text-slate-400">
+                  <span>해외 송금 망 사용료</span>
+                  <span>{data.feeBreakdown.network.toLocaleString()} KRW</span>
+                </div>
+                <div className="flex justify-between text-[11px] font-bold text-slate-400">
+                  <span>부가세 (VAT)</span>
+                  <span>{data.feeBreakdown.vat.toLocaleString()} KRW</span>
+                </div>
+              </div>
             </div>
 
-            <div className="w-full h-px bg-slate-50" />
+            <div className="w-full h-px bg-slate-100" />
 
-            <div className="flex items-end justify-between">
+            <div className="flex items-end justify-between pt-2">
               <span className="text-sm font-bold text-slate-400">
                 최종 정산 금액
               </span>
@@ -161,19 +184,6 @@ const SettlementDetailModal: React.FC<DetailModalProps> = ({
                 </span>
               </div>
             </div>
-          </div>
-
-          <div className="p-6 bg-slate-900 rounded-[28px] text-white">
-            <div className="flex items-center gap-2 mb-4 opacity-60">
-              <ShieldCheck size={16} />
-              <span className="text-[10px] font-bold uppercase tracking-widest">
-                Security & Verification
-              </span>
-            </div>
-            <p className="text-xs font-medium leading-relaxed text-slate-400">
-              본 정산 내역은 포트원 결제 데이터와의 대조가 완료되었으며, 수수료
-              산정 기준은 당사 운영 정책을 따릅니다.
-            </p>
           </div>
         </div>
 

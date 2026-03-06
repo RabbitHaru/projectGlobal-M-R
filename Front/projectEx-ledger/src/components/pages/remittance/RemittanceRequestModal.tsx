@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { X, Info } from "lucide-react";
 
-// 🌟 핵심: 인터페이스 이름을 ModalProps로 하고 initialReceiverName을 포함합니다.
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -19,14 +18,13 @@ const RemittanceRequestModal: React.FC<ModalProps> = ({
   const [feeInfo, setFeeInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // 인증된 이름이 들어오면 수취인 필드에 자동 입력
   useEffect(() => {
-    if (isOpen && initialReceiverName) {
-      setRecipientName(initialReceiverName);
+    if (isOpen) {
+      // 🌟 수정: initialReceiverName이 있으면 그것을 쓰고, 없으면 빈 값을 세팅
+      setRecipientName(initialReceiverName || "");
     }
   }, [isOpen, initialReceiverName]);
 
-  // 수수료 계산 API 호출 (A님 엔진 연동)
   useEffect(() => {
     if (amount > 0) {
       const fetchFee = async () => {
@@ -52,7 +50,6 @@ const RemittanceRequestModal: React.FC<ModalProps> = ({
 
     setLoading(true);
     try {
-      // 🌟 실제 송금 신청 API (WAITING 상태로 저장됨)
       await axios.post("/api/v1/remittance/request", {
         recipientName,
         amount,
@@ -95,11 +92,15 @@ const RemittanceRequestModal: React.FC<ModalProps> = ({
             <input
               type="text"
               value={recipientName}
+              // 🌟 수정 1: onChange 추가 (사용자가 직접 입력 가능하게 함)
+              onChange={(e) => setRecipientName(e.target.value)}
+              // 🌟 수정 2: initialReceiverName이 넘어온 경우에만 수정 불가(readOnly) 처리
               readOnly={!!initialReceiverName}
-              className={`w-full p-4 border-none rounded-2xl text-lg font-bold outline-none ${
+              placeholder="수취인 실명을 입력하세요"
+              className={`w-full p-4 border-none rounded-2xl text-lg font-bold outline-none transition-all ${
                 initialReceiverName
-                  ? "bg-blue-50 text-blue-700"
-                  : "bg-gray-50 text-gray-800"
+                  ? "bg-blue-50 text-blue-700 cursor-not-allowed"
+                  : "bg-gray-50 text-gray-800 focus:ring-2 focus:ring-blue-500"
               }`}
             />
           </div>
