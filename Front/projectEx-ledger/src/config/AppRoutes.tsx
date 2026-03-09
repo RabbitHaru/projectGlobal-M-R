@@ -36,7 +36,6 @@ const AppRoutes = () => {
       <Route path="/seller/dashboard" element={<SellerDashboard />} />
       <Route path="/client" element={<ClientManagement />} />
       <Route path="/list" element={<MySettlementList />} />
-      <Route path="/seller/dashboard" element={<SellerDashboard />} />
       <Route path="/pages/remittance" element={<RemittanceManagement />} />
       <Route path="/dashboard" element={<TransactionHistory />} />
       <Route
