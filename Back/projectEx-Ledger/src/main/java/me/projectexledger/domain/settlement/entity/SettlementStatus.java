@@ -10,6 +10,12 @@ public enum SettlementStatus {
     WAITING("승인 대기"),
     PENDING("송금 대기"),
     COMPLETED("정산 완료"),
+    
+    // 추적 프로세스 상태값
+    REVIEWING("검토 중"),
+    EXCHANGED("환전 완료"),
+    IN_PROGRESS("해외 송금 중"),
+
     // 오류 발생
     WAITING_USER_CONSENT("유저 동의 대기"),// 내부 DB와 포트원 데이터가 다를 때 발생
     DISCREPANCY("오차 발생"),
