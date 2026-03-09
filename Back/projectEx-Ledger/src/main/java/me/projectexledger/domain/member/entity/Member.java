@@ -78,8 +78,8 @@ public class Member extends BaseEntity {
             // 기업 회원은 사내 관리자의 승인을 받아야 함
             this.isApproved = false;
         } else {
-            // 일반 유저는 기업 승인이 필요 없음
-            this.isApproved = false;
+            // 일반 유저는 기업 승인이 필요 없음 (가입 즉시 활동 가능)
+            this.isApproved = true;
         }
     }
 
@@ -105,5 +105,15 @@ public class Member extends BaseEntity {
 
     public void approveCompany() {
         this.isApproved = true;
+    }
+
+    public void approveByAdmin() {
+        this.isApproved = true;
+        this.adminApprovalStatus = AdminApprovalStatus.APPROVED;
+    }
+
+    public void rejectByAdmin() {
+        this.isApproved = false;
+        this.adminApprovalStatus = AdminApprovalStatus.REJECTED;
     }
 }

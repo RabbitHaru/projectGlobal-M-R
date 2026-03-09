@@ -7,7 +7,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,8 +51,18 @@ public class FileUploadController {
             String uuidFileName = UUID.randomUUID().toString() + extension;
             Path filePath = uploadPath.resolve(uuidFileName);
 
-            // 파일 저장 (서버 내부 경로에 비공개 저장)
-            file.transferTo(filePath.toFile());
+            // 파일 형식에 따른 분기 (이미지면 압축, 아니면 원본 저장)
+            String contentType = file.getContentType();
+            if (contentType != null && contentType.startsWith("image/")) {
+                // net.coobird.thumbnailator.Thumbnails
+                net.coobird.thumbnailator.Thumbnails.of(file.getInputStream())
+                        .size(1920, 1080) // 최대 사이즈 제한
+                        .outputQuality(0.8) // 화질 80%
+                        .toFile(filePath.toFile());
+            } else {
+                // PDF 등 이미지가 아닌 경우 원본 저장
+                file.transferTo(filePath.toFile());
+            }
 
             log.info("사업자 등록증 업로드 완료 - 원본: {}, 저장된 UUID: {}", originalFilename, uuidFileName);
 

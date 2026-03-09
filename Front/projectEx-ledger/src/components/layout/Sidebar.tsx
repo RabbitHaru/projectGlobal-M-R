@@ -209,6 +209,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {hasRole('ROLE_INTEGRATED_ADMIN') && (
           <Link
+            to="/admin/companies/review"
+            onClick={onClose}
+            className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all rounded-xl group ${location.pathname === "/admin/companies/review"
+              ? "bg-blue-50 text-blue-600"
+              : "text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+              }`}
+          >
+            <ShieldAlert
+              size={18}
+              className={
+                location.pathname === "/admin/companies/review"
+                  ? "text-blue-500"
+                  : "text-slate-400 group-hover:text-blue-500"
+              }
+            />
+            신규 기업 심사
+          </Link>
+        )}
+
+        {hasRole('ROLE_INTEGRATED_ADMIN') && (
+          <Link
             to="/admin/logs"
             onClick={onClose}
             className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all rounded-xl group ${location.pathname === "/admin/logs"

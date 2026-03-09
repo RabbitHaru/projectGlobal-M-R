@@ -78,14 +78,16 @@ public class AuthService {
         Member member = memberRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        // 모든 사용자에게 예외 없이 MFA 검증 및 설정 강제
+        String jwt = jwtTokenProvider.createToken(authentication);
+
+        // 모든 사용자에게 예외 없이 MFA 검증 및 설정 강제 (로그인 시점에는 설정 여부만 프론트에 알림)
         if (!member.isMfaEnabled()) {
-            // 아직 설정을 안 했다면, frontend가 setupMfa를 호출하도록 유도
-            return new TokenResponse(null, "Bearer", false, true);
+            // 아직 설정을 안 했다면, frontend가 setupMfa를 호출하도록 유도하되 로그인은 진행시킴
+            return new TokenResponse(jwt, "Bearer", false, true);
         }
 
-        // 설정이 되어 있다면 OTP 코드 입력 단계로 이동
-        return new TokenResponse(null, "Bearer", true, false);
+        // 로그인은 성공. JIT MFA 방식이므로 로그인 시점에는 인증을 요구하지 않음
+        return new TokenResponse(jwt, "Bearer", false, false);
     }
 
     @Transactional

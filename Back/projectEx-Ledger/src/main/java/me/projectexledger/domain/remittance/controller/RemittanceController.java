@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import me.projectexledger.common.annotation.RequireMfa;
 
 import java.util.List;
 
@@ -19,6 +20,7 @@ public class RemittanceController {
     private final RemittanceService remittanceService;
 
     // 🚨 API 개요: 사용자가 입력한 송금 정보를 서버에 전달하여 프로세스 시작
+    @RequireMfa
     @PostMapping("/request")
     public ResponseEntity<RemittanceDTO.Response> requestRemittance(
             @RequestBody RemittanceDTO.Request requestDTO,
@@ -42,11 +44,11 @@ public class RemittanceController {
                 requestDTO.getAmount(),
                 requestDTO.getExchangeRate(),
                 requestDTO.getCurrency(),
-                requestDTO.getClientGrade()
-        );
+                requestDTO.getClientGrade());
 
         return ResponseEntity.ok(feeResponse);
     }
+
     // 🚨 관리자 전용 API: 전체 해외 송금 신청 내역 조회
     @GetMapping("/list")
     public ResponseEntity<List<RemittanceDTO.ListResponse>> getRemittanceList() {

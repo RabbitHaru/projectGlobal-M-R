@@ -99,15 +99,16 @@ const SignupPage: React.FC = () => {
                 businessRef.current?.focus();
                 return;
             }
-            if (!isPortoneVerified) {
-                setError('휴대폰 본인인증을 완료해주세요.');
-                return;
-            }
             if (!licenseFile) {
                 setError('사업자등록증 업로드가 필요합니다.');
                 fileRef.current?.focus();
                 return;
             }
+        }
+
+        if (!isPortoneVerified) {
+            setError('휴대폰 본인인증을 완료해주세요.');
+            return;
         }
 
         if (!termsRequired) {
@@ -256,19 +257,7 @@ const SignupPage: React.FC = () => {
                             <div className="p-4 border rounded-md space-y-4 bg-gray-50">
                                 <h3 className="font-semibold text-sm text-gray-700">추가 도용 방지 심사</h3>
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">1. 본인인증 (PortOne)</label>
-                                    <Button
-                                        type="button"
-                                        className={`w-full ${isPortoneVerified ? "bg-slate-400" : "bg-indigo-600 hover:bg-indigo-700"}`}
-                                        disabled={isPortoneVerified}
-                                        onClick={handlePortoneVerification}
-                                    >
-                                        {isPortoneVerified ? "✅ 본인인증 완료" : "휴대폰 본인인증 하기"}
-                                    </Button>
-                                    <p className="text-xs text-gray-500">허위 가입 방지를 위해 실명 인증을 진행합니다.</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">2. 사업자등록증 (사본)</label>
+                                    <label className="block text-sm font-medium text-gray-700">사업자등록증 (사본)</label>
                                     <input
                                         ref={fileRef}
                                         type="file"
@@ -282,6 +271,19 @@ const SignupPage: React.FC = () => {
                         )}
                     </div>
                 )}
+
+                <div className="p-4 border rounded-md space-y-2 bg-indigo-50/50">
+                    <label className="block text-sm font-medium text-gray-700">실명 및 연락처 인증 (필수)</label>
+                    <Button
+                        type="button"
+                        className={`w-full ${isPortoneVerified ? "bg-slate-400" : "bg-indigo-600 hover:bg-indigo-700"}`}
+                        disabled={isPortoneVerified}
+                        onClick={handlePortoneVerification}
+                    >
+                        {isPortoneVerified ? "✅ 본인인증 완료" : "휴대폰 본인인증 하기"}
+                    </Button>
+                    <p className="text-xs text-gray-500">안전한 금융/외환 거래를 위해 가입 시 반드시 1회 휴대폰 실명 인증을 진행합니다.</p>
+                </div>
 
                 <div className="mt-6 p-4 border rounded-md space-y-3 bg-gray-50 text-sm">
                     <label className="flex items-center space-x-2 cursor-pointer font-medium text-gray-700">

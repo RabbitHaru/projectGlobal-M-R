@@ -25,6 +25,7 @@ import RemittanceManagement from "../pages/integratedadmin/RemittanceManagement"
 // Company
 import CompanyJoin from "../pages/company/CompanyJoin";
 import PendingUsers from "../pages/company/PendingUsers";
+import CompanyReview from "../pages/integratedadmin/CompanyReview";
 
 const AppRoutes = () => {
   return (
@@ -66,6 +67,7 @@ const AppRoutes = () => {
           >
             <Route path="/admin/logs" element={<AdminLogList />} />
             <Route path="/admin/health" element={<SystemHealth />} />
+            <Route path="/admin/companies/review" element={<CompanyReview />} />
           </Route>
 
           {/* 기업 관리자(Company Admin) 전용 라우트 */}

@@ -6,6 +6,7 @@ import me.projectexledger.domain.company.dto.PendingUserResponse;
 import me.projectexledger.domain.member.entity.Member;
 import me.projectexledger.domain.member.repository.MemberRepository;
 import me.projectexledger.security.SecurityUtil;
+import me.projectexledger.domain.auth.service.EmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CompanyService {
     private final MemberRepository memberRepository;
+    private final EmailService emailService;
 
     @Transactional
     public void requestJoinCompany(JoinCompanyRequest request) {
@@ -61,5 +63,8 @@ public class CompanyService {
         }
 
         user.approveCompany();
+
+        // 이메일 알림 발송 (COMPANY_USER 승인 시)
+        emailService.sendApprovalEmail(user.getEmail(), user.getName(), "COMPANY_USER");
     }
 }
