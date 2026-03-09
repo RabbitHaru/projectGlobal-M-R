@@ -40,8 +40,14 @@ public class AuthService {
             throw new IllegalArgumentException("이미 가입되어 있는 이메일입니다.");
         }
 
-        Member.Role role = "COMPANY_ADMIN".equals(request.getRoleType()) ? Member.Role.ROLE_COMPANY_ADMIN
-                : Member.Role.ROLE_USER;
+        Member.Role role;
+        if ("COMPANY_ADMIN".equals(request.getRoleType())) {
+            role = Member.Role.ROLE_COMPANY_ADMIN;
+        } else if ("COMPANY_USER".equals(request.getRoleType())) {
+            role = Member.Role.ROLE_COMPANY_USER;
+        } else {
+            role = Member.Role.ROLE_USER;
+        }
 
         Member member = Member.builder()
                 .email(request.getEmail())
@@ -49,6 +55,8 @@ public class AuthService {
                 .name(request.getName())
                 .role(role)
                 .businessNumber(request.getBusinessNumber())
+                .portoneImpUid(request.getPortoneImpUid())
+                .licenseFileUuid(request.getLicenseFileUuid())
                 .build();
 
         return memberRepository.save(member).getId();

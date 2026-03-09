@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../common/Button";
 import { Input } from "../common/Input";
 import http from "../../../config/http";
@@ -14,6 +14,8 @@ const LoginPage: React.FC = () => {
   const [isMfaRequired, setIsMfaRequired] = useState(false);
   const [error, setError] = useState("");
 
+  const navigate = useNavigate();
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -23,51 +25,41 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    const response = await http.post("/auth/login", {
-      email,
-      password,
-      code: Number(otpCode),
-      turnstileToken,
-    });
-    if (response.data && response.data.data) {
-      const { accessToken } = response.data.data;
-      setToken(accessToken);
-      window.location.href = "/";
+    try {
+      if (isMfaRequired) {
+        // MFA 검증 로직
+        const response = await http.post('/auth/login/mfa', { email, password, code: Number(otpCode), turnstileToken });
+        if (response.data && response.data.data) {
+          const { accessToken } = response.data.data;
+          setToken(accessToken);
+          window.location.href = '/';
+        }
+      } else {
+        // 1차 로그인 라우트
+        const response = await http.post('/auth/login', { email, password, turnstileToken });
+        if (response.data && response.data.data) {
+          const { accessToken, mfaRequired, mfaSetupRequired } = response.data.data;
+
+          if (mfaSetupRequired) {
+            setError('보안 강화를 위해 구글 OTP 최초 설정이 필요합니다. 설정 페이지로 이동합니다.');
+            setTimeout(() => {
+              navigate('/auth/mfa', { state: { email } });
+            }, 1500);
+            return;
+          }
+
+          if (mfaRequired) {
+            setIsMfaRequired(true);
+            setError(''); // 이전 에러 초기화
+          } else {
+            setToken(accessToken);
+            window.location.href = '/';
+          }
+        }
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.response?.data?.data || '로그인에 실패했습니다.');
     }
-
-    // try {
-    //     if (isMfaRequired) {
-    //         // MFA 검증 로직
-    // const response = await http.post('/auth/login/mfa', { email, password, code: Number(otpCode), turnstileToken });
-    // if (response.data && response.data.data) {
-    //     const { accessToken } = response.data.data;
-    //     setToken(accessToken);
-    //     window.location.href = '/';
-    // }
-    //     } else {
-    //         // 1차 로그인 라우트
-    //         const response = await http.post('/auth/login', { email, password, turnstileToken });
-    //         if (response.data && response.data.data) {
-    //             const { accessToken, mfaRequired, mfaSetupRequired } = response.data.data;
-
-    //             if (mfaSetupRequired) {
-    //                 setError('보안 강화를 위해 구글 OTP 최초 설정이 필요합니다. 설정 페이지로 이동해 주세요.');
-    //                 // TODO: 향후 구현될 MFA 설정 페이지(/mfa-setup)로 리다이렉트
-    //                 return;
-    //             }
-
-    //             if (mfaRequired) {
-    //                 setIsMfaRequired(true);
-    //                 setError(''); // 이전 에러 초기화
-    //             } else {
-    //                 setToken(accessToken);
-    //                 window.location.href = '/';
-    //             }
-    //         }
-    //     }
-    // } catch (err: any) {
-    //     setError(err.response?.data?.message || err.response?.data?.data || '로그인에 실패했습니다.');
-    // }
   };
 
   return (

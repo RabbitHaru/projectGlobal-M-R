@@ -58,16 +58,22 @@ const AppRoutes = () => {
           />
           <Route path="/company/join" element={<CompanyJoin />} />
 
-          {/* 관리자(Admin) 전용 라우트 */}
+          {/* 최고 관리자(Integrated Admin) 전용 라우트 */}
           <Route
             element={
-              <ProtectedRoute
-                allowedRoles={["ROLE_COMPANY_ADMIN", "ROLE_INTEGRATED_ADMIN"]}
-              />
+              <ProtectedRoute allowedRoles={["ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]} />
             }
           >
             <Route path="/admin/logs" element={<AdminLogList />} />
             <Route path="/admin/health" element={<SystemHealth />} />
+          </Route>
+
+          {/* 기업 관리자(Company Admin) 전용 라우트 */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={["ROLE_COMPANY_ADMIN", "COMPANY_ADMIN", "ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]} />
+            }
+          >
             <Route path="/admin/company/pending" element={<PendingUsers />} />
           </Route>
         </Route>
