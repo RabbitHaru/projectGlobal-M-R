@@ -98,11 +98,9 @@ const ExchangeRateChart: React.FC<Props> = ({
 
       <div className="relative flex-1 w-full p-4 bg-slate-50 rounded-2xl">
         <ResponsiveContainer width="100%" height="100%">
-          {/* 🌟 수정: 상단 마진(top)을 40으로 늘려 라벨이 그려질 공간을 확보합니다 */}
           <AreaChart
             data={data}
-            margin={{ top: 40, right: 20, left: 0, bottom: 0 }}
-            style={{ outline: "none", border: "none" }}
+            margin={{ top: 50, right: 20, left: 0, bottom: 10 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
@@ -116,9 +114,10 @@ const ExchangeRateChart: React.FC<Props> = ({
               tick={{ fontSize: 11, fontWeight: 700, fill: "#cbd5e1" }}
               dy={10}
             />
-            {/* 🌟 수정: Y축 도메인에 여유 계수(1.02)를 곱해 상단 공간을 강제로 만듭니다 */}
+
+            {/* 🌟 굴곡 살리기: 버퍼를 최소화하여(+8) 그래프가 꽉 차 보이게 함 */}
             <YAxis
-              domain={["dataMin - 5", "dataMax + 15"]}
+              domain={["dataMin - 2", "dataMax + 8"]}
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 11, fontWeight: 700, fill: "#cbd5e1" }}
@@ -126,31 +125,33 @@ const ExchangeRateChart: React.FC<Props> = ({
             />
             <Tooltip contentStyle={{ borderRadius: "16px", border: "none" }} />
 
+            {/* 🌟 레이어 1: 파란색 라인을 먼저 그립니다. */}
             <Area
               type="monotone"
               dataKey="rate"
               stroke="#2563eb"
               strokeWidth={3}
               fill="none"
-              dot={{ r: 5, fill: "#2563eb", stroke: "#2563eb", strokeWidth: 2 }}
-              activeDot={{ r: 6 }}
+              dot={{ r: 2, fill: "#2563eb", stroke: "#2563eb", strokeWidth: 1 }}
+              activeDot={{ r: 5 }}
             />
 
+            {/* 🌟 레이어 2: 최고/최저 점을 라인 위에 덮어씌웁니다. */}
             {maxPoint && (
               <ReferenceDot
                 x={maxPoint.date}
                 y={maxPoint.rate}
-                r={5}
+                r={7} // 🌟 빨간 점 크기를 대폭 확대
                 fill="#ef4444"
-                stroke="#fff"
-                strokeWidth={2}
+                stroke="#fff" // 🌟 흰색 테두리로 파란선을 끊어버림
+                strokeWidth={4} // 🌟 테두리를 두껍게 주어 확실히 분리
                 label={{
                   position: "top",
                   value: `최고 ${maxPoint.rate.toLocaleString()}`,
                   fill: "#ef4444",
                   fontSize: 11,
                   fontWeight: 900,
-                  dy: -12, // 라벨을 점 위로 살짝 더 띄웁니다
+                  dy: -12,
                 }}
               />
             )}
@@ -158,10 +159,10 @@ const ExchangeRateChart: React.FC<Props> = ({
               <ReferenceDot
                 x={minPoint.date}
                 y={minPoint.rate}
-                r={5}
+                r={7}
                 fill="#2563eb"
                 stroke="#fff"
-                strokeWidth={2}
+                strokeWidth={4}
                 label={{
                   position: "bottom",
                   value: `최저 ${minPoint.rate.toLocaleString()}`,
