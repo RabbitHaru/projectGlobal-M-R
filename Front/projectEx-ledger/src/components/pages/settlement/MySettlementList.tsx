@@ -83,7 +83,7 @@ const MySettlementList = () => {
   const handlePayment = async () => {
     try {
       await requestPortonePayment({
-        amount: 1000, // 테스트 결제 금액
+        amount: 3000, // 테스트 결제 금액
         orderName: "해외 송금 예치금 결제",
         buyerName: "Member C",
         buyerEmail: "member_c@exledger.com",
