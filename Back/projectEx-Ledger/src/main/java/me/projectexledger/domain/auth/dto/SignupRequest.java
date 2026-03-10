@@ -19,7 +19,9 @@ public class SignupRequest {
     @NotBlank(message = "Name is required")
     private String name;
 
-    private String roleType; // "USER" or "COMPANY_ADMIN"
+    private String roleType; // "USER", "COMPANY_USER", or "COMPANY_ADMIN"
     private String businessNumber; // "1234567890" etc
+    private String portoneImpUid; // 포트원 인증 고유 세션 ID
+    private String licenseFileUuid; // 사업자등록증 파일 uuid (COMPANY_ADMIN 필수)
     private String turnstileToken;
 }

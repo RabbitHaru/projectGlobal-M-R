@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import CommonLayout from "../../layout/CommonLayout";
 import { useToast } from "../../notification/ToastProvider";
 import { ArrowDownLeft, Wallet, Globe, Landmark, Loader2 } from "lucide-react";
 
@@ -70,7 +69,7 @@ const SettlementDashboard: React.FC = () => {
   };
 
   return (
-    <CommonLayout>
+    <>
       <div className="max-w-6xl mx-auto p-10 space-y-10 bg-[#fcfdfe] min-h-screen animate-in fade-in duration-500">
         <header className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 flex justify-between items-center">
           <div className="flex items-center gap-6">
@@ -206,7 +205,7 @@ const SettlementDashboard: React.FC = () => {
           </aside>
         </main>
       </div>
-    </CommonLayout>
+    </>
   );
 };
 

@@ -20,6 +20,8 @@ import me.projectexledger.domain.auth.service.BusinessVerificationService;
 import me.projectexledger.common.annotation.RequireMfa;
 import org.springframework.web.bind.annotation.GetMapping;
 import java.security.Principal;
+import java.util.Map;
+import me.projectexledger.domain.auth.dto.TokenRefreshRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -47,21 +49,29 @@ public class AuthController {
         return ApiResponse.success("MFA 로그인 성공", tokenResponse);
     }
 
+    @PostMapping("/refresh")
+    public ApiResponse<TokenResponse> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
+        TokenResponse tokenResponse = authService.refreshToken(request.getRefreshToken());
+        return ApiResponse.success("토큰 재발급 성공", tokenResponse);
+    }
+
     @PostMapping("/mfa/setup")
-    public ApiResponse<MfaSetupResponse> setupMfa(Principal principal) {
-        if (principal == null) {
-            return ApiResponse.fail("인증이 필요합니다.");
+    public ApiResponse<MfaSetupResponse> setupMfa(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isEmpty()) {
+            return ApiResponse.fail("이메일이 필요합니다.");
         }
-        MfaSetupResponse response = authService.setupMfa(principal.getName());
+        MfaSetupResponse response = authService.setupMfa(email);
         return ApiResponse.success("MFA 설정 준비 완료", response);
     }
 
     @PostMapping("/mfa/enable")
-    public ApiResponse<Void> enableMfa(Principal principal, @Valid @RequestBody MfaVerifyRequest request) {
-        if (principal == null) {
-            return ApiResponse.fail("인증이 필요합니다.");
+    public ApiResponse<Void> enableMfa(@Valid @RequestBody MfaVerifyRequest request) {
+        String email = request.getEmail();
+        if (email == null || email.isEmpty()) {
+            return ApiResponse.fail("이메일이 필요합니다.");
         }
-        authService.enableMfa(principal.getName(), request);
+        authService.enableMfa(email, request);
         return ApiResponse.success("MFA가 성공적으로 활성화되었습니다.", null);
     }
 

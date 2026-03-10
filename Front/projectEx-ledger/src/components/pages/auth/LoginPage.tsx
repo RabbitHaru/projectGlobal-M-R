@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../common/Button";
 import { Input } from "../common/Input";
+import { OtpInput } from "../common/OtpInput";
 import http from "../../../config/http";
-import { setToken } from "../../../config/auth";
+import { setToken, setRefreshToken } from "../../../config/auth";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 const LoginPage: React.FC = () => {
@@ -14,66 +15,65 @@ const LoginPage: React.FC = () => {
   const [isMfaRequired, setIsMfaRequired] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const navigate = useNavigate();
+
+  const handleLogin = async (e: React.FormEvent, mfaCodeArg?: string) => {
     e.preventDefault();
     setError("");
+
+    const routeByUserRole = () => {
+      window.location.href = "/";
+    };
 
     if (!turnstileToken) {
       setError("Turnstile (봇 방지) 인증이 완료되지 않았습니다.");
       return;
     }
 
-    const response = await http.post("/auth/login", {
-      email,
-      password,
-      code: Number(otpCode),
-      turnstileToken,
-    });
-    if (response.data && response.data.data) {
-      const { accessToken } = response.data.data;
-      setToken(accessToken);
-      window.location.href = "/";
+    try {
+      if (isMfaRequired) {
+        // MFA 검증 로직
+        const codeNum = mfaCodeArg ? Number(mfaCodeArg) : Number(otpCode);
+        const response = await http.post('/auth/login/mfa', { email, password, code: codeNum, turnstileToken });
+        if (response.data && response.data.data) {
+          const { accessToken, refreshToken } = response.data.data;
+          setToken(accessToken);
+          if (refreshToken) setRefreshToken(refreshToken);
+          routeByUserRole();
+        }
+      } else {
+        // 1차 로그인 라우트
+        const response = await http.post('/auth/login', { email, password, turnstileToken });
+        if (response.data && response.data.data) {
+          const { accessToken, refreshToken, mfaRequired, mfaSetupRequired } = response.data.data;
+
+          if (mfaSetupRequired) {
+            setError('보안 강화를 위해 구글 OTP 최초 설정이 필요합니다. 설정 페이지로 이동합니다.');
+            setTimeout(() => {
+              navigate('/auth/mfa', { state: { email } });
+            }, 1500);
+            return;
+          }
+
+          if (mfaRequired) {
+            setIsMfaRequired(true);
+            setError(''); // 이전 에러 초기화
+          } else {
+            setToken(accessToken);
+            if (refreshToken) setRefreshToken(refreshToken);
+            routeByUserRole();
+          }
+        }
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.response?.data?.data || '로그인에 실패했습니다.');
     }
-
-    // try {
-    //     if (isMfaRequired) {
-    //         // MFA 검증 로직
-    // const response = await http.post('/auth/login/mfa', { email, password, code: Number(otpCode), turnstileToken });
-    // if (response.data && response.data.data) {
-    //     const { accessToken } = response.data.data;
-    //     setToken(accessToken);
-    //     window.location.href = '/';
-    // }
-    //     } else {
-    //         // 1차 로그인 라우트
-    //         const response = await http.post('/auth/login', { email, password, turnstileToken });
-    //         if (response.data && response.data.data) {
-    //             const { accessToken, mfaRequired, mfaSetupRequired } = response.data.data;
-
-    //             if (mfaSetupRequired) {
-    //                 setError('보안 강화를 위해 구글 OTP 최초 설정이 필요합니다. 설정 페이지로 이동해 주세요.');
-    //                 // TODO: 향후 구현될 MFA 설정 페이지(/mfa-setup)로 리다이렉트
-    //                 return;
-    //             }
-
-    //             if (mfaRequired) {
-    //                 setIsMfaRequired(true);
-    //                 setError(''); // 이전 에러 초기화
-    //             } else {
-    //                 setToken(accessToken);
-    //                 window.location.href = '/';
-    //             }
-    //         }
-    //     }
-    // } catch (err: any) {
-    //     setError(err.response?.data?.message || err.response?.data?.data || '로그인에 실패했습니다.');
-    // }
   };
 
   return (
     <div className="w-full">
-      <h2 className="mb-6 text-2xl font-bold text-center text-gray-800">
-        로그인
+      <h2 className="mb-8 text-2xl font-bold text-center text-slate-800 tracking-tight">
+        환영합니다
       </h2>
 
       {error && (
@@ -100,15 +100,17 @@ const LoginPage: React.FC = () => {
         />
 
         {isMfaRequired && (
-          <Input
-            label="구글 OTP 앱 6자리 코드"
-            type="text"
-            value={otpCode}
-            onChange={(e) => setOtpCode(e.target.value)}
-            placeholder="123456"
-            required
-            maxLength={6}
-          />
+          <div className="space-y-4">
+            <div className="text-center text-sm font-bold text-gray-700">구글 OTP 앱 6자리 코드</div>
+            <OtpInput
+              value={otpCode}
+              onChange={setOtpCode}
+              onComplete={(code) => {
+                // e.preventDefault doesn't exist here, but we can pass code directly
+                handleLogin({ preventDefault: () => { } } as any, code);
+              }}
+            />
+          </div>
         )}
 
         <div className="flex justify-center my-4">
@@ -118,15 +120,15 @@ const LoginPage: React.FC = () => {
           />
         </div>
 
-        <Button type="submit" className="w-full mt-4">
+        <Button type="submit" className="w-full mt-6 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-[14px] font-bold text-[14px] transition-all shadow-lg active:scale-[0.98]">
           로그인
         </Button>
       </form>
 
-      <div className="mt-6 text-sm text-center text-gray-600">
+      <div className="mt-8 text-[13px] font-medium text-center text-slate-500">
         계정이 없으신가요?{" "}
-        <Link to="/signup" className="text-blue-600 hover:text-blue-800">
-          회원가입
+        <Link to="/signup" className="text-teal-600 font-bold hover:text-teal-700 transition-colors">
+          무료로 회원가입
         </Link>
       </div>
     </div>

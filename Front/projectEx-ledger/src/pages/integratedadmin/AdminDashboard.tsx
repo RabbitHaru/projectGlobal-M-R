@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import CommonLayout from "../../components/layout/CommonLayout"; 
+import { toast } from 'sonner';
+import http from "../../config/http";
 
 export interface DashboardSummary {
   totalPaymentAmount: number;
@@ -17,10 +18,9 @@ const AdminDashboard: React.FC = () => {
 
   const fetchDashboardSummary = async () => {
     try {
-      const response = await fetch("/api/admin/settlements/dashboard");
-      if (response.ok) {
-        const result = await response.json();
-        setSummary(result.data); 
+      const response: any = await http.get("/admin/settlements/dashboard");
+      if (response && response.data && response.data.status === 'SUCCESS') {
+        setSummary(response.data.data);
       }
     } catch (error) {
       console.error("데이터 로드 실패:", error);
@@ -30,10 +30,10 @@ const AdminDashboard: React.FC = () => {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const response = await fetch("/api/admin/settlements/sync", { method: "GET" });
-      if (response.ok) {
-        alert("포트원 결제 데이터 동기화 완료! ✅");
-        await fetchDashboardSummary(); 
+      const response: any = await http.get("/admin/settlements/sync");
+      if (response && response.data && response.data.status === 'SUCCESS') {
+        toast.success("포트원 결제 데이터 동기화 완료! ✅");
+        await fetchDashboardSummary();
       }
     } finally {
       setIsSyncing(false);
@@ -48,7 +48,7 @@ const AdminDashboard: React.FC = () => {
   const actionRequiredCount = summary ? (summary.discrepancyCount + summary.failedRemittanceCount) : 0;
 
   return (
-    <CommonLayout>
+    <>
       <main className="flex-grow w-full px-4 py-8 mx-auto space-y-6 max-w-7xl sm:px-6 lg:px-8">
         <section className="flex items-center justify-between p-6 bg-white border border-gray-100 shadow-sm rounded-xl">
           <div>
@@ -150,7 +150,7 @@ const AdminDashboard: React.FC = () => {
           </a>
         </div>
       </main>
-    </CommonLayout>
+    </>
   );
 };
 
