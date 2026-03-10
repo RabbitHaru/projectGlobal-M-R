@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import CommonLayout from "../../layout/CommonLayout";
 import { useToast } from "../../notification/ToastProvider";
+import { hasRole } from "../../../utils/auth";
 import {
   Building2,
   Send,
@@ -14,7 +15,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-// 🌟 22개국 확장을 위한 ISO 표준 코드 적용 리스트
+// 백엔드 명세에 맞춘 수취인 데이터 (실제 데이터 연동 전 초기값)
 const RECIPIENTS = [
   {
     id: "REC_001",
@@ -98,8 +99,6 @@ const SellerDashboard: React.FC = () => {
   const [balance, setBalance] = useState<number>(0);
 
   const [isRemitModalOpen, setIsRemitModalOpen] = useState(false);
-  const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
-  const [chargeAmount, setChargeAmount] = useState<number>(500000);
   const [isProcessing, setIsProcessing] = useState(false);
   const [remitStep, setRemitStep] = useState(0);
 
@@ -182,6 +181,7 @@ const SellerDashboard: React.FC = () => {
     }
   };
 
+  // 3. 송금 확인 및 애니메이션 실행 (버그 수정됨)
   const confirmRemittance = async () => {
     if (balance < totalPayment) {
       showToast("수수료를 포함한 잔액이 부족합니다.", "ERROR");
@@ -228,32 +228,38 @@ const SellerDashboard: React.FC = () => {
   };
 
   return (
-    <CommonLayout>
-      <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-8 bg-[#fcfdfe] min-h-screen animate-in fade-in duration-500">
-        <header className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center justify-center text-teal-400 shadow-xl w-14 h-14 bg-slate-900 rounded-2xl">
-              <Wallet size={28} />
-            </div>
-            <div className="space-y-1">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                Available KRW Balance
-              </p>
-              <h1 className="font-sans text-5xl font-black tracking-tighter text-slate-900">
-                {balance.toLocaleString()}{" "}
-                <span className="ml-1 text-xl font-medium text-slate-200">
-                  KRW
-                </span>
-              </h1>
-            </div>
+    <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-8 bg-[#fcfdfe] min-h-screen animate-in fade-in duration-500">
+      {/* 상단 잔액 요약 */}
+      <header className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center justify-center text-teal-400 shadow-xl w-14 h-14 bg-slate-900 rounded-2xl">
+            <Wallet size={28} />
           </div>
+          <div className="space-y-1">
+            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+              Available KRW Balance
+            </p>
+            <h1 className="text-5xl font-black tracking-tighter text-slate-900">
+              {balance.toLocaleString()}{" "}
+              <span className="ml-1 font-sans text-xl font-medium text-slate-200">
+                KRW
+              </span>
+            </h1>
+          </div>
+        </div>
+        {hasRole("ROLE_USER") || hasRole("ROLE_COMPANY_ADMIN") || hasRole("ROLE_COMPANY_USER") ? (
           <button
             onClick={() => setIsChargeModalOpen(true)}
             className="w-full px-10 py-5 text-sm font-black text-white transition-all shadow-2xl md:w-auto bg-slate-900 rounded-2xl hover:bg-slate-800 active:scale-95 shadow-slate-200"
           >
             자금 충전하기
           </button>
-        </header>
+        ) : (
+          <div className="px-6 py-4 bg-slate-50 rounded-2xl text-[11px] font-bold text-slate-400">
+            충전 권한 없음
+          </div>
+        )}
+      </header>
 
         <main className="grid items-start grid-cols-1 gap-8 lg:grid-cols-12">
           <div className="space-y-6 lg:col-span-7">
@@ -356,12 +362,16 @@ const SellerDashboard: React.FC = () => {
               >
                 해외 송금 실행
               </button>
-            </div>
-          </aside>
-        </main>
-      </div>
+            ) : (
+              <div className="w-full py-8 text-center bg-slate-800 rounded-[36px] text-slate-500 font-bold">
+                송금 권한이 없습니다
+              </div>
+            )
+          </div>
+        </aside>
+      </main>
 
-      {/* 🌟 수정된 상세 송금 명세 모달 (정수 금액 적용) */}
+      {/* 최종 승인 모달 */}
       {isRemitModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/70 backdrop-blur-md animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-[56px] p-12 space-y-10 shadow-2xl">

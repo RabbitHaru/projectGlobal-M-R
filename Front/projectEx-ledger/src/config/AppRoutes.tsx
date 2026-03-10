@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import RootLayout from "../components/layout/RootLayout";
+import CommonLayout from "../components/layout/CommonLayout";
 import AuthLayout from "../components/layout/AuthLayout";
 import { ProtectedRoute } from "../components/pages/common/ProtectedRoute";
 
@@ -26,54 +26,54 @@ import RemittanceTracking from "../components/pages/remittance/Tracking/Remittan
 import ExchangePage from "../components/widgets/finance/ExchangePage";
 import SettlementDashboard from "../components/pages/settlement/SettlementDashboard";
 
+// Company
+import CompanyJoin from "../pages/company/CompanyJoin";
+import PendingUsers from "../pages/company/PendingUsers";
+import CompanyReview from "../pages/integratedadmin/CompanyReview";
+
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* 누구나 접근 가능한 기본 렌딩 페이지 */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/dashboard" element={<AdminDashboard />} />
-      <Route path="/admin/list" element={<ReconciliationList />} />
-      <Route path="/admin/settlement/:id" element={<ReconciliationDetail />} />
-      <Route path="/pages/admin/settlement" element={<ReconciliationList />} />
-      <Route path="/seller/dashboard" element={<SellerDashboard />} />
-      <Route path="/settlement" element={<SettlementDashboard />} />
-      <Route path="/client" element={<ClientManagement />} />
-      <Route path="/list" element={<MySettlementList />} />
-      <Route path="/pages/remittance" element={<RemittanceManagement />} />
-      <Route path="/dashboard" element={<TransactionHistory />} />
-      <Route
-        path="/pages/remittance/Tracking"
-        element={<RemittanceTracking />}
-      />
-      <Route path="/widget/finance" element={<ExchangePage />} />
+      <Route element={<CommonLayout />}>
+        {/* 1. 누구나 접근 가능한 기본 라우트 (비로그인 허용) */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/exchange" element={<ExchangePage />} />
+        <Route path="/finance" element={<LandingPage />} />
+        <Route path="/pages/remittance/Tracking" element={<RemittanceTracking />} />
 
-      {/* 인증 불필요 라우트 */}
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/auth/mfa" element={<MFASetup />} />
-      </Route>
+        {/* 2. 인증 불필요 라우트 (로그인/회원가입 등) */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/auth/mfa" element={<MFASetup />} />
+        </Route>
 
-      {/* 보안/인증 필요 라우트 */}
-      <Route element={<ProtectedRoute />}>
-        <Route element={<RootLayout />}>
-          {/* 일반 로그인 사용자 접근 가능 (User, Company Admin, Integrated Admin) */}
+        {/* 3. 보안/인증 필요 라우트 영역 */}
+        <Route element={<ProtectedRoute />}>
+          {/* ----- 일반 로그인 사용자 공통 (User, Company User, Company Admin) ----- */}
+          <Route element={<ProtectedRoute allowedRoles={["ROLE_USER", "USER", "ROLE_COMPANY_USER", "COMPANY_USER", "ROLE_COMPANY_ADMIN", "COMPANY_ADMIN"]} />}>
+            <Route path="/seller/dashboard" element={<SellerDashboard />} />
+            <Route path="/company/join" element={<CompanyJoin />} />
+            <Route path="/list" element={<MySettlementList />} />
+            <Route path="/seller/history" element={<TransactionHistory />} />
+            <Route path="/settlement" element={<SettlementDashboard />} />
+          </Route>
 
-          <Route
-            path="/settlement"
-            element={<div className="p-4">Settlement</div>}
-          />
+          {/* ----- 기업 관리자(Company Admin) 전용 라우트 ----- */}
+          <Route element={<ProtectedRoute allowedRoles={["ROLE_COMPANY_ADMIN", "COMPANY_ADMIN"]} />}>
+            <Route path="/admin/company/pending" element={<PendingUsers />} />
+          </Route>
 
-          {/* 관리자(Admin) 전용 라우트 */}
-          <Route
-            element={
-              <ProtectedRoute
-                allowedRoles={["ROLE_COMPANY_ADMIN", "ROLE_INTEGRATED_ADMIN"]}
-              />
-            }
-          >
+          {/* ----- 최고 관리자(Integrated Admin) 전용 라우트 ----- */}
+          <Route element={<ProtectedRoute allowedRoles={["ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]} />}>
+            <Route path="/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/list" element={<ReconciliationList />} />
+            <Route path="/admin/settlement/:id" element={<ReconciliationDetail />} />
+            <Route path="/client" element={<ClientManagement />} />
             <Route path="/admin/logs" element={<AdminLogList />} />
             <Route path="/admin/health" element={<SystemHealth />} />
+            <Route path="/admin/companies/review" element={<CompanyReview />} />
+            <Route path="/remittance" element={<RemittanceManagement />} />
           </Route>
         </Route>
       </Route>

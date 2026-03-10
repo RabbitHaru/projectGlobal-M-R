@@ -44,6 +44,9 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // Swagger (API Docs)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1'
+
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
@@ -54,6 +57,9 @@ dependencies {
 
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation('it.ozimov:embedded-redis:0.7.3') {
+        exclude group: 'org.slf4j', module: 'slf4j-simple'
+    }
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     implementation 'com.fasterxml.jackson.core:jackson-annotations'
@@ -66,6 +72,9 @@ dependencies {
 
     // JUnit 5 & AssertJ
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // Image compression
+    implementation 'net.coobird:thumbnailator:0.4.20'
 }
 
 tasks.named('test') {

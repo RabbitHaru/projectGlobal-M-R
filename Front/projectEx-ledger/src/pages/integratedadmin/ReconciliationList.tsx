@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CommonLayout from "../../components/layout/CommonLayout"; 
 // 🌟 1. 우리가 만든 마스터키 불러오기
-import { authFetch } from '../../utils/api';
+import http from '../../config/http';
+import { toast } from 'sonner';
 
 export interface ReconciliationData {
   id: number;
@@ -12,7 +12,7 @@ export interface ReconciliationData {
   accountNumber?: string;
   originalAmount: number;
   settlementAmount: number;
-  status: string; 
+  status: string;
   updatedAt: string;
 }
 
@@ -26,19 +26,19 @@ const ReconciliationList: React.FC = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<ReconciliationData[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  
-  const [searchType, setSearchType] = useState<string>('ALL'); 
-  const [searchQuery, setSearchQuery] = useState<string>(''); 
-  
+
+  const [searchType, setSearchType] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [testStatus, setTestStatus] = useState<string>('PENDING');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 10; 
+  const itemsPerPage = 10;
 
   const [isSearchTypeDropdownOpen, setIsSearchTypeDropdownOpen] = useState<boolean>(false);
   const [isTestDropdownOpen, setIsTestDropdownOpen] = useState<boolean>(false);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
-  
+
   const searchTypeDropdownRef = useRef<HTMLDivElement>(null);
   const testDropdownRef = useRef<HTMLDivElement>(null);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
@@ -65,7 +65,7 @@ const ReconciliationList: React.FC = () => {
   // 🌟 결제번호 복사 함수
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      alert("결제 번호가 복사되었습니다! ✅");
+      toast.info("결제 번호가 복사되었습니다! ✅");
     }).catch(err => {
       console.error('복사 실패:', err);
     });
@@ -74,11 +74,11 @@ const ReconciliationList: React.FC = () => {
   const fetchReconciliationData = async () => {
     setIsLoading(true);
     try {
-      // 🌟 2. 마스터키(authFetch) 적용 - 토큰 자동 탑재
-      const response = await authFetch('/api/admin/settlements/reconciliations?page=0&size=1000');
-      if (response.ok) {
-        const result = await response.json();
-        setData(result.data || []);
+      // 🌟 2. 마스터키(http) 적용 - 토큰 자동 탑재
+      const response: any = await http.get('/admin/settlements/reconciliations?page=0&size=1000');
+      if (response && response.data && response.data.status === 'SUCCESS') {
+        const result = response.data.data;
+        setData(result.content || []);
       }
     } catch (error) {
       console.error("데이터 로드 실패:", error);
@@ -89,38 +89,69 @@ const ReconciliationList: React.FC = () => {
 
   const handleCreateTestData = async () => {
     try {
-      // 🌟 3. 마스터키(authFetch) 적용
-      const response = await authFetch(`/api/admin/settlements/test-data?status=${testStatus}`, { method: 'POST' });
-      if (response.ok) {
+      // 🌟 3. 마스터키(http) 적용
+      const response: any = await http.post(`/admin/settlements/test-data?status=${testStatus}`);
+      if (response && response.data && response.data.status === 'SUCCESS') {
         const koreanStatus = statusKoreanMap[testStatus] || testStatus;
-        alert(`${koreanStatus} 상태의 테스트 데이터가 성공적으로 주입되었습니다! 💉`);
+        toast.success(`${koreanStatus} 상태의 테스트 데이터가 성공적으로 주입되었습니다! 💉`);
         fetchReconciliationData();
       }
     } catch (error) {
-      alert("데이터 주입 중 오류가 발생했습니다.");
+      toast.error("데이터 주입 중 오류가 발생했습니다.");
     }
   };
 
   const handleApprove = async (id: number) => {
     if (!window.confirm(`대사 ID #${id} 건의 송금을 승인하시겠습니까?\n승인 시 '송금 대기' 상태로 전환됩니다.`)) return;
-    
+
     try {
-      // 🌟 4. 마스터키(authFetch) 적용
-      const response = await authFetch(`/api/admin/settlements/${id}/approve`, { method: 'POST' });
-      if (response.ok) {
-        alert("✅ 성공적으로 승인되었습니다.");
-        fetchReconciliationData(); 
+      // 🌟 4. 마스터키(http) 적용
+      const response: any = await http.post(`/admin/settlements/${id}/approve`);
+      if (response && response.data && response.data.status === 'SUCCESS') {
+        toast.success("✅ 성공적으로 승인되었습니다.");
+        fetchReconciliationData();
       } else {
-        const err = await response.json();
-        alert(`❌ 승인 실패: ${err.error || "알 수 없는 오류"}`);
+        toast.error(`❌ 승인 실패: ${response?.data?.message || "알 수 없는 오류"}`);
       }
-    } catch (error) {
-      alert("서버 통신 중 오류가 발생했습니다.");
+    } catch (error: any) {
+      toast.error(`서버 통신 중 오류가 발생했습니다: ${error.message || "알 수 없는 오류"}`);
+    }
+  };
+
+  // ✅ 일괄 승인 함수
+  const handleBulkApprove = async () => {
+    // Assuming `selectedIds` is a state variable holding selected reconciliation IDs
+    // You would need to define `selectedIds` and `setSelectedIds` in your component state
+    // For now, let's assume it's an empty array or needs to be passed as an argument
+    const selectedIds: number[] = []; // Placeholder, replace with actual state
+
+    if (selectedIds.length === 0) {
+      toast.info("승인할 항목을 선택해주세요.");
+      return;
+    }
+
+    if (!window.confirm(`${selectedIds.length} 건의 항목을 일괄 승인하시겠습니까?`)) return;
+
+    try {
+      for (const id of selectedIds) {
+        // 🌟 4. 마스터키(http) 적용
+        const response: any = await http.post(`/admin/settlements/${id}/approve`);
+        if (response && response.data && response.data.status === 'SUCCESS') {
+          toast.success(`✅ ID #${id} 성공적으로 승인되었습니다.`);
+        } else {
+          toast.error(`❌ ID #${id} 승인 실패: ${response?.data?.message || "알 수 없는 오류"}`);
+        }
+      }
+      // setSelectedIds([]); // Clear selections after bulk approval
+      fetchReconciliationData();
+    } catch (err: any) {
+      toast.error(`일괄 승인 처리 중 오류가 발생했습니다: ${err.message || "알 수 없는 오류"}`);
+      console.error(err);
     }
   };
 
   useEffect(() => { fetchReconciliationData(); }, []);
-  useEffect(() => { setCurrentPage(1); }, [filterStatus, searchQuery, searchType]); 
+  useEffect(() => { setCurrentPage(1); }, [filterStatus, searchQuery, searchType]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -151,7 +182,7 @@ const ReconciliationList: React.FC = () => {
     if (row.status === 'DISCREPANCY' || row.status === 'FAILED') {
       navigate(`/admin/settlement/${row.id}`);
     } else {
-      const TARGET_DETAIL_PATH = `/temp-detail-path/${row.id}`; 
+      const TARGET_DETAIL_PATH = `/temp-detail-path/${row.id}`;
       navigate(TARGET_DETAIL_PATH);
     }
   };
@@ -168,18 +199,18 @@ const ReconciliationList: React.FC = () => {
       if (searchType === 'BANK_NAME') return d.bankName?.toLowerCase().includes(lowerQuery) || false;
       if (searchType === 'ACCOUNT_NUMBER') return d.accountNumber?.includes(lowerQuery) || false;
       if (searchType === 'ORDER_ID') return d.orderId?.toLowerCase().includes(lowerQuery) || false;
-      
+
       return (d.clientName?.toLowerCase().includes(lowerQuery) || false) ||
-             (d.orderId?.toLowerCase().includes(lowerQuery) || false) ||
-             (d.accountNumber?.includes(lowerQuery) || false) ||
-             (d.bankName?.toLowerCase().includes(lowerQuery) || false);
+        (d.orderId?.toLowerCase().includes(lowerQuery) || false) ||
+        (d.accountNumber?.includes(lowerQuery) || false) ||
+        (d.bankName?.toLowerCase().includes(lowerQuery) || false);
     });
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
   const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <CommonLayout>
+    <>
       <main className="flex-grow w-full px-4 py-8 mx-auto max-w-7xl">
         <div className="p-8 bg-white border border-gray-200 shadow-sm rounded-xl">
           <div className="flex flex-col justify-between gap-4 mb-8 xl:flex-row xl:items-end">
@@ -187,9 +218,9 @@ const ReconciliationList: React.FC = () => {
               <h2 className="text-2xl font-bold text-gray-900">포트원 결제 대사 리스트</h2>
               <p className="mt-1 text-sm text-gray-500">포트원(V2) 결제 내역과 내부 송금 DB를 대조합니다.</p>
             </div>
-            
+
             <div className="flex flex-col items-center w-full gap-3 lg:flex-row lg:justify-end">
-              
+
               <div className="flex items-center w-full sm:w-[380px] bg-white border border-gray-300 rounded-md shadow-sm transition focus-within:ring-1 focus-within:ring-teal-500 focus-within:border-teal-500">
                 <div className="relative border-r border-gray-300" ref={searchTypeDropdownRef}>
                   <button
@@ -197,12 +228,12 @@ const ReconciliationList: React.FC = () => {
                     className="flex items-center justify-between w-[110px] px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-l-md hover:bg-gray-100 outline-none"
                   >
                     <span>{searchTypeMap[searchType]}</span>
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isSearchTypeDropdownOpen ? 'rotate-180' : ''}`} 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor" 
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isSearchTypeDropdownOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                       strokeWidth={2}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -249,12 +280,12 @@ const ReconciliationList: React.FC = () => {
                   className="flex items-center justify-between w-full gap-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-md shadow-sm outline-none hover:bg-gray-50 transition min-w-[130px]"
                 >
                   <span className="font-medium text-gray-700">{filterMap[filterStatus]}</span>
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isFilterDropdownOpen ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor" 
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isFilterDropdownOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
                     strokeWidth={2}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -290,10 +321,10 @@ const ReconciliationList: React.FC = () => {
                   <option value="COMPLETED">정산 완료</option>
                   <option value="FAILED">송금 실패</option>
                   <option value="DISCREPANCY">오차 발생</option>
-      
+
                 </select>
-                <button 
-                  onClick={handleCreateTestData} 
+                <button
+                  onClick={handleCreateTestData}
                   className="px-4 py-2 text-sm font-bold text-white transition bg-indigo-600 rounded-md shadow-sm whitespace-nowrap hover:bg-indigo-700"
                 >
                   테스트 주입 💉
@@ -327,7 +358,7 @@ const ReconciliationList: React.FC = () => {
                 ) : paginatedData.map((row) => (
                   <tr key={row.id} className="transition border-b border-gray-100 hover:bg-gray-50/50">
                     <td className="px-2 py-5 text-sm font-medium text-gray-500">#{row.id}</td>
-                    
+
                     <td className="px-2 py-5 text-sm font-medium text-gray-500 whitespace-nowrap">
                       {row.updatedAt || "-"}
                     </td>
@@ -337,7 +368,7 @@ const ReconciliationList: React.FC = () => {
                         <span title={row.orderId} className="underline cursor-help decoration-dotted decoration-gray-300">
                           {shortenOrderId(row.orderId)}
                         </span>
-                        <button 
+                        <button
                           onClick={() => handleCopy(row.orderId)}
                           className="p-1 text-gray-400 transition rounded hover:text-teal-600 hover:bg-teal-50"
                           title="전체 번호 복사"
@@ -350,10 +381,10 @@ const ReconciliationList: React.FC = () => {
                     </td>
 
                     <td className="px-2 py-5">
-                        <div className="text-sm font-bold text-gray-800">{row.clientName || "익명 기업"}</div>
-                        <div className="font-mono text-xs text-gray-500 mt-0.5 tabular-nums">
-                            {row.bankName ? `${row.bankName} ${row.accountNumber}` : "계좌정보 확인중..."}
-                        </div>
+                      <div className="text-sm font-bold text-gray-800">{row.clientName || "익명 기업"}</div>
+                      <div className="font-mono text-xs text-gray-500 mt-0.5 tabular-nums">
+                        {row.bankName ? `${row.bankName} ${row.accountNumber}` : "계좌정보 확인중..."}
+                      </div>
                     </td>
                     <td className="px-2 py-5 font-semibold text-center text-gray-800">{row.originalAmount?.toLocaleString()}원</td>
                     <td className="px-2 py-5 font-semibold text-center text-gray-800">{row.settlementAmount?.toLocaleString()}원</td>
@@ -386,7 +417,7 @@ const ReconciliationList: React.FC = () => {
           )}
         </div>
       </main>
-    </CommonLayout>
+    </>
   );
 };
 

@@ -16,11 +16,13 @@ import java.util.Map;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @Slf4j
 @RestController
 @RequestMapping("/api/admin/settlements")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('INTEGRATED_ADMIN')")
 public class AdminSettlementController {
 
     private final SettlementEngineService settlementEngineService;
@@ -96,8 +98,7 @@ public class AdminSettlementController {
                 "RANDOM",
                 BigDecimal.ZERO,
                 "KRW",
-                status
-        );
+                status);
 
         return ResponseEntity.ok(ApiResponse.success("랜덤 테스트 데이터가 생성되었습니다!", null));
     }

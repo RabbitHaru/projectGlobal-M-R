@@ -1,0 +1,32 @@
+src/components/dashboard/SpendingChart.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/layout/RootLayout.tsx(9,14): error TS2739: Type '{}' is missing the following properties from type 'SidebarProps': isOpen, onClose
+src/components/pages/auth/LoginPage.tsx(14,25): error TS6133: 'setIsMfaRequired' is declared but its value is never read.
+src/components/pages/remittance/AccountVerification.tsx(3,10): error TS6133: 'Search' is declared but its value is never read.
+src/components/pages/remittance/AccountVerification.tsx(3,32): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/components/pages/remittance/RemittanceConsentModal.tsx(3,36): error TS6133: 'X' is declared but its value is never read.
+src/components/pages/remittance/RemittancePage.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/pages/remittance/RemittancePage.tsx(4,7): error TS6133: 'RemittancePage' is declared but its value is never read.
+src/components/pages/remittance/RemittancePage.tsx(14,23): error TS6133: 'setCurrentRate' is declared but its value is never read.
+src/components/pages/remittance/RemittanceRequest.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/pages/remittance/RemittanceRequestModal.tsx(3,13): error TS6133: 'Info' is declared but its value is never read.
+src/components/pages/remittance/SellerDashboard.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/pages/remittance/SellerDashboard.tsx(9,18): error TS6133: 'History' is declared but its value is never read.
+src/components/pages/remittance/SellerDashboard.tsx(9,27): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/components/pages/remittance/Tracking/RemittanceTracking.tsx(5,3): error TS6133: 'Send' is declared but its value is never read.
+src/components/pages/settlement/MySettlementList.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/pages/settlement/SettlementDetailModal.tsx(6,3): error TS6133: 'ShieldCheck' is declared but its value is never read.
+src/components/transaction/SmartExchangeForm.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/widgets/finance/ExchangeRateChart.tsx(13,1): error TS6192: All imports in import declaration are unused.
+src/components/widgets/finance/ExchangeRateChart.tsx(27,10): error TS6133: 'loading' is declared but its value is never read.
+src/components/widgets/finance/ExchangeRateChart.tsx(28,10): error TS6133: 'hasError' is declared but its value is never read.
+src/pages/integratedadmin/ReconciliationDetail.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/integratedadmin/ReconciliationDetail.tsx(33,28): error TS18047: 'response' is possibly 'null'.
+src/pages/integratedadmin/ReconciliationDetail.tsx(35,11): error TS18047: 'response' is possibly 'null'.
+src/pages/integratedadmin/ReconciliationDetail.tsx(58,28): error TS18047: 'response' is possibly 'null'.
+src/pages/integratedadmin/ReconciliationDetail.tsx(60,11): error TS18047: 'response' is possibly 'null'.
+src/pages/integratedadmin/ReconciliationList.tsx(39,10): error TS6133: 'isTestDropdownOpen' is declared but its value is never read.
+src/pages/integratedadmin/ReconciliationList.tsx(79,11): error TS18047: 'response' is possibly 'null'.
+src/pages/integratedadmin/ReconciliationList.tsx(80,30): error TS18047: 'response' is possibly 'null'.
+src/pages/integratedadmin/ReconciliationList.tsx(94,11): error TS18047: 'response' is possibly 'null'.
+src/pages/integratedadmin/ReconciliationList.tsx(110,11): error TS18047: 'response' is possibly 'null'.
+src/pages/integratedadmin/ReconciliationList.tsx(114,27): error TS18047: 'response' is possibly 'null'.

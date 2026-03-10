@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 /**
  * 어드민 대시보드 API
  * AdminDashboard.tsx에 전체 결제 합계 및 송금 현황 요약을 전달합니다.
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/dashboard")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('INTEGRATED_ADMIN')")
 public class AdminDashboardController {
 
     private final AdminDashboardService adminDashboardService;
