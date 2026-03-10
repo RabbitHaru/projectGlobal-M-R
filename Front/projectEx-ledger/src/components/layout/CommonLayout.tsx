@@ -1,5 +1,5 @@
 import React, { useState, useEffect, type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, Outlet } from "react-router-dom";
 // 🌟 세련된 로고와 메뉴를 위한 아이콘 추가
 import {
   Menu,
@@ -17,7 +17,7 @@ import Sidebar from "./Sidebar";
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 
 interface LayoutProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
@@ -128,8 +128,8 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
               <Link
                 to="/"
                 className={`flex items-center gap-2 transition-colors ${isActive("/")
-                    ? "text-teal-600"
-                    : "text-slate-400 hover:text-slate-600"
+                  ? "text-teal-600"
+                  : "text-slate-400 hover:text-slate-600"
                   }`}
               >
                 <BarChart2 size={16} /> 실시간 환율
@@ -137,8 +137,8 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
               <Link
                 to="/seller/dashboard"
                 className={`flex items-center gap-2 transition-colors ${isActive("/seller/dashboard")
-                    ? "text-teal-600"
-                    : "text-slate-400 hover:text-slate-600"
+                  ? "text-teal-600"
+                  : "text-slate-400 hover:text-slate-600"
                   }`}
               >
                 <LayoutDashboard size={16} /> 셀러 대시보드
@@ -151,8 +151,8 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
                 <button
                   onClick={() => setShowNotiPanel(!showNotiPanel)}
                   className={`p-2.5 rounded-xl transition-all relative ${showNotiPanel
-                      ? "bg-teal-50 text-teal-600 shadow-inner"
-                      : "text-slate-400 hover:bg-slate-50"
+                    ? "bg-teal-50 text-teal-600 shadow-inner"
+                    : "text-slate-400 hover:bg-slate-50"
                     }`}
                 >
                   <Bell size={22} />
@@ -253,7 +253,7 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
         </header>
 
         {/* 메인 콘텐츠 영역 */}
-        <main className="flex-grow">{children}</main>
+        <main className="flex-grow">{children ? children : <Outlet />}</main>
 
         {/* 푸터 영역 (고급스럽게 다듬음) */}
         <footer className="px-6 py-16 bg-slate-900 text-slate-500">

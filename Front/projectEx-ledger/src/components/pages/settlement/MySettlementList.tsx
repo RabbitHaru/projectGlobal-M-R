@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import CommonLayout from "../../layout/CommonLayout";
 import SettlementDetailModal from "./SettlementDetailModal";
 import { requestPortonePayment } from "../../../utils/portonePayment";
 import { useToast } from "../../../components/notification/ToastProvider";
@@ -141,7 +140,7 @@ const MySettlementList = () => {
   };
 
   return (
-    <CommonLayout>
+    <>
       <div className="w-full p-6 mx-auto lg:p-10 max-w-7xl">
         <div className="flex flex-col gap-6 mb-12 md:flex-row md:items-end md:justify-between">
           <div>
@@ -271,7 +270,7 @@ const MySettlementList = () => {
         onClose={() => setIsDetailOpen(false)}
         data={selectedRecord}
       />
-    </CommonLayout>
+    </>
   );
 };
 

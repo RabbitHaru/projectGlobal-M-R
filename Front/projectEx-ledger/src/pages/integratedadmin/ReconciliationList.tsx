@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CommonLayout from "../../components/layout/CommonLayout";
 // 🌟 1. 우리가 만든 마스터키 불러오기
 import http from '../../config/http';
 import { toast } from 'sonner';
@@ -77,8 +76,8 @@ const ReconciliationList: React.FC = () => {
     try {
       // 🌟 2. 마스터키(http) 적용 - 토큰 자동 탑재
       const response: any = await http.get('/admin/settlements/reconciliations?page=0&size=1000');
-      if (response && response.status === 'SUCCESS') { // Check for successful status code
-        const result = response.data; // Access data property from axios response
+      if (response && response.data && response.data.status === 'SUCCESS') {
+        const result = response.data.data;
         setData(result.content || []);
       }
     } catch (error) {
@@ -92,7 +91,7 @@ const ReconciliationList: React.FC = () => {
     try {
       // 🌟 3. 마스터키(http) 적용
       const response: any = await http.post(`/admin/settlements/test-data?status=${testStatus}`);
-      if (response && response.status === 'SUCCESS') {
+      if (response && response.data && response.data.status === 'SUCCESS') {
         const koreanStatus = statusKoreanMap[testStatus] || testStatus;
         toast.success(`${koreanStatus} 상태의 테스트 데이터가 성공적으로 주입되었습니다! 💉`);
         fetchReconciliationData();
@@ -108,11 +107,11 @@ const ReconciliationList: React.FC = () => {
     try {
       // 🌟 4. 마스터키(http) 적용
       const response: any = await http.post(`/admin/settlements/${id}/approve`);
-      if (response && response.status === 'SUCCESS') {
+      if (response && response.data && response.data.status === 'SUCCESS') {
         toast.success("✅ 성공적으로 승인되었습니다.");
         fetchReconciliationData();
       } else {
-        toast.error(`❌ 승인 실패: ${response?.message || "알 수 없는 오류"}`);
+        toast.error(`❌ 승인 실패: ${response?.data?.message || "알 수 없는 오류"}`);
       }
     } catch (error: any) {
       toast.error(`서버 통신 중 오류가 발생했습니다: ${error.message || "알 수 없는 오류"}`);
@@ -137,10 +136,10 @@ const ReconciliationList: React.FC = () => {
       for (const id of selectedIds) {
         // 🌟 4. 마스터키(http) 적용
         const response: any = await http.post(`/admin/settlements/${id}/approve`);
-        if (response && response.status === 'SUCCESS') {
+        if (response && response.data && response.data.status === 'SUCCESS') {
           toast.success(`✅ ID #${id} 성공적으로 승인되었습니다.`);
         } else {
-          toast.error(`❌ ID #${id} 승인 실패: ${response?.message || "알 수 없는 오류"}`);
+          toast.error(`❌ ID #${id} 승인 실패: ${response?.data?.message || "알 수 없는 오류"}`);
         }
       }
       // setSelectedIds([]); // Clear selections after bulk approval
@@ -211,7 +210,7 @@ const ReconciliationList: React.FC = () => {
   const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <CommonLayout>
+    <>
       <main className="flex-grow w-full px-4 py-8 mx-auto max-w-7xl">
         <div className="p-8 bg-white border border-gray-200 shadow-sm rounded-xl">
           <div className="flex flex-col justify-between gap-4 mb-8 xl:flex-row xl:items-end">
@@ -418,7 +417,7 @@ const ReconciliationList: React.FC = () => {
           )}
         </div>
       </main>
-    </CommonLayout>
+    </>
   );
 };
 

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
-import CommonLayout from "../../components/layout/CommonLayout";
 import { toast } from 'sonner';
+import http from "../../config/http";
 
 interface Client {
   merchantId: string;
   name: string;
   status: string;
   joinDate: string;
-  grade: 'GENERAL' | 'VIP'; 
+  grade: 'GENERAL' | 'VIP';
 }
 
 interface SettlementPolicy {
@@ -33,15 +33,15 @@ const fallbackClients: Client[] = [
 // 🌟 [추가] 상태값을 한글로 변환하고 예쁜 색상을 입혀주는 헬퍼 함수
 const getStatusBadge = (status: string) => {
   switch (status) {
-    case 'APPROVED': 
+    case 'APPROVED':
       return <span className="px-3 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-full">승인 완료</span>;
-    case 'PENDING': 
+    case 'PENDING':
       return <span className="px-3 py-1 text-xs font-bold rounded-full text-amber-700 bg-amber-100">승인 대기</span>;
-    case 'ACTIVE': 
+    case 'ACTIVE':
       return <span className="px-3 py-1 text-xs font-bold text-blue-700 bg-blue-100 rounded-full">활성 (임시)</span>;
-    case 'SUSPENDED': 
+    case 'SUSPENDED':
       return <span className="px-3 py-1 text-xs font-bold text-red-700 bg-red-100 rounded-full">이용 정지</span>;
-    default: 
+    default:
       return <span className="px-3 py-1 text-xs font-bold text-gray-700 bg-gray-200 rounded-full">{status}</span>;
   }
 };
@@ -61,9 +61,9 @@ export default function ClientManagement() {
   const fetchClients = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin/clients');
-      if (response.ok) {
-        const result = await response.json();
+      const response: any = await http.get('/admin/clients');
+      if (response && response.data && response.data.status === 'SUCCESS') {
+        const result = response.data;
         if (result.data && result.data.length > 0) {
           setClients(result.data);
         } else {
@@ -73,7 +73,7 @@ export default function ClientManagement() {
         setClients(fallbackClients);
       }
     } catch (error) {
-      setClients(fallbackClients); 
+      setClients(fallbackClients);
     } finally {
       setIsLoading(false);
     }
@@ -86,17 +86,17 @@ export default function ClientManagement() {
   const applyGradeDefaults = (grade: 'GENERAL' | 'VIP') => {
     if (grade === 'VIP') {
       setPolicyData({
-        platformFeeRate: '0.005',   
-        networkFee: '0',            
-        exchangeSpread: '2.0',      
-        preferenceRate: '1.0',      
+        platformFeeRate: '0.005',
+        networkFee: '0',
+        exchangeSpread: '2.0',
+        preferenceRate: '1.0',
       });
     } else {
       setPolicyData({
-        platformFeeRate: '0.015',   
-        networkFee: '2000',         
-        exchangeSpread: '10.0',     
-        preferenceRate: '0.90',     
+        platformFeeRate: '0.015',
+        networkFee: '2000',
+        exchangeSpread: '10.0',
+        preferenceRate: '0.90',
       });
     }
   };
@@ -114,14 +114,14 @@ export default function ClientManagement() {
 
   const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newGrade = e.target.value as 'GENERAL' | 'VIP';
-    
+
     if (selectedClient) {
       setSelectedClient({ ...selectedClient, grade: newGrade });
       applyGradeDefaults(newGrade);
-      setClients(prevClients => 
-        prevClients.map(client => 
-          client.merchantId === selectedClient.merchantId 
-            ? { ...client, grade: newGrade } 
+      setClients(prevClients =>
+        prevClients.map(client =>
+          client.merchantId === selectedClient.merchantId
+            ? { ...client, grade: newGrade }
             : client
         )
       );
@@ -130,58 +130,54 @@ export default function ClientManagement() {
 
   const handleSavePolicy = async () => {
     if (!selectedClient) return;
-    
+
     if (!window.confirm(`${selectedClient.name}의 등급(${selectedClient.grade})과 수수료 정책을 업데이트 하시겠습니까?`)) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/admin/clients/${selectedClient.merchantId}/policy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grade: selectedClient.grade, 
-          platformFeeRate: parseFloat(policyData.platformFeeRate),
-          networkFee: parseFloat(policyData.networkFee),
-          exchangeSpread: parseFloat(policyData.exchangeSpread),
-          preferenceRate: parseFloat(policyData.preferenceRate),
-        }),
+      const response: any = await http.post(`/admin/clients/${selectedClient.merchantId}/policy`, {
+        grade: selectedClient.grade,
+        platformFeeRate: parseFloat(policyData.platformFeeRate),
+        networkFee: parseFloat(policyData.networkFee),
+        exchangeSpread: parseFloat(policyData.exchangeSpread),
+        preferenceRate: parseFloat(policyData.preferenceRate),
       });
 
-      const result = await response.json();
-      if (response.ok && result.status === "SUCCESS") {
+      const result = response.data;
+      if (response && result && result.status === "SUCCESS") {
         setClients((prevClients) => {
           const updated = prevClients.map((client) =>
             client.merchantId === selectedClient.merchantId
               ? {
-                  ...client,
-                  grade: selectedClient.grade,
-                  feeRate: policyData.platformFeeRate,
-                  networkFee: policyData.networkFee,
-                  exchangeSpread: policyData.exchangeSpread,
-                  preferenceRate: policyData.preferenceRate,
-                }
+                ...client,
+                grade: selectedClient.grade,
+                feeRate: policyData.platformFeeRate,
+                networkFee: policyData.networkFee,
+                exchangeSpread: policyData.exchangeSpread,
+                preferenceRate: policyData.preferenceRate,
+              }
               : client,
           );
           return updated;
         });
-        alert("✅ 가맹점 등급 및 수수료 정책이 성공적으로 반영되었습니다!");
+        toast.success("✅ 가맹점 등급 및 수수료 정책이 성공적으로 반영되었습니다!");
       } else {
-        alert(`❌ 업데이트 실패: ${result.message}`);
+        toast.error(`❌ 업데이트 실패: ${result?.message || '알 수 없는 오류'}`);
       }
     } catch (error) {
       console.error("API 통신 에러:", error);
-      alert(
+      toast.error(
         "서버와 통신 중 문제가 발생했습니다. 백엔드가 켜져있는지 확인해주세요!",
       );
     }
   };
 
   return (
-    <CommonLayout>
+    <>
       <main className="w-full px-4 py-8 mx-auto max-w-7xl">
         <h2 className="mb-6 text-2xl font-bold text-gray-900">🏢 기업 고객 및 수수료 정책 관리</h2>
-        
+
         <div className="flex flex-col gap-6 lg:flex-row">
-          
+
           <div className="w-full lg:w-1/3 bg-white border border-gray-200 shadow-sm rounded-xl p-6 min-h-[500px]">
             <h3 className="mb-4 text-lg font-bold text-gray-800">가맹점 목록</h3>
             {isLoading ? (
@@ -194,11 +190,10 @@ export default function ClientManagement() {
                   <li key={client.merchantId}>
                     <button
                       onClick={() => handleClientSelect(client)}
-                      className={`w-full text-left px-4 py-3 rounded-lg border transition ${
-                        selectedClient?.merchantId === client.merchantId
-                          ? 'bg-teal-50 border-teal-500 text-teal-900 font-bold'
-                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                      }`}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition ${selectedClient?.merchantId === client.merchantId
+                        ? 'bg-teal-50 border-teal-500 text-teal-900 font-bold'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                        }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">{client.name}</span>
@@ -219,20 +214,19 @@ export default function ClientManagement() {
               <div>
                 <div className="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
                   <h3 className="flex items-center gap-3 text-lg font-bold text-gray-800">
-                    <span className="text-teal-600">{selectedClient.name}</span> 
-                    
-                    <select 
-                      value={selectedClient.grade} 
+                    <span className="text-teal-600">{selectedClient.name}</span>
+
+                    <select
+                      value={selectedClient.grade}
                       onChange={handleGradeChange}
-                      className={`text-sm font-bold px-3 py-1.5 rounded-lg border outline-none cursor-pointer ${
-                        selectedClient.grade === 'VIP' ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-300 text-gray-600'
-                      }`}
+                      className={`text-sm font-bold px-3 py-1.5 rounded-lg border outline-none cursor-pointer ${selectedClient.grade === 'VIP' ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-300 text-gray-600'
+                        }`}
                     >
                       <option value="GENERAL">일반 등급</option>
                       <option value="VIP">👑 VIP 등급</option>
                     </select>
                   </h3>
-                  
+
                   {/* 🌟 [수정됨] 여기서 한글 배지 함수를 호출합니다 */}
                   {getStatusBadge(selectedClient.status)}
                 </div>
@@ -312,6 +306,6 @@ export default function ClientManagement() {
 
         </div>
       </main>
-    </CommonLayout>
+    </>
   );
 }

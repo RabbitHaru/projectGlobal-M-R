@@ -107,14 +107,6 @@ const ExchangePage = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         initialReceiverName={verifiedName}
-        onSuccess={() => alert("환전 신청 완료!")}
-        settlementData={{
-          amount: exchangeAmount,
-          currency: targetCurrency,
-          rate: currentRate,
-          fee: 0,
-          finalAmount: finalAmount,
-        }}
       />
     </div>
   );

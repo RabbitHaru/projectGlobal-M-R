@@ -1,6 +1,5 @@
 import type { ExchangeRate } from "../../../types/exchange";
 import React, { Suspense, lazy, useState, useEffect } from "react";
-import CommonLayout from "../../layout/CommonLayout";
 import FXTicker from "../../widgets/finance/FXTicker";
 import MiniConverter from "../../widgets/finance/MiniConverter";
 import ExchangeRateTable from "../../widgets/finance/ExchangeRateTable";
@@ -51,10 +50,7 @@ const LandingPage: React.FC = () => {
   const loserValue = topLoser?.changeRate || 0;
 
   return (
-    <CommonLayout>
-      <div className="sticky top-0 z-20 w-full border-b bg-slate-900 border-slate-800">
-        <FXTicker rates={rates || []} />
-      </div>
+    <>
       <main className="flex flex-col min-h-screen gap-10 px-4 py-10 mx-auto max-w-7xl bg-slate-50/50">
         {/* Top Mover 카드 (지능형 라벨 적용) */}
         <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -140,7 +136,7 @@ const LandingPage: React.FC = () => {
           />
         </section>
       </main>
-    </CommonLayout>
+    </>
   );
 };
 

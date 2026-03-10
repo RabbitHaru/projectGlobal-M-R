@@ -4,7 +4,7 @@ import { Button } from "../common/Button";
 import { Input } from "../common/Input";
 import { OtpInput } from "../common/OtpInput";
 import http from "../../../config/http";
-import { setToken, setRefreshToken, parseJwt } from "../../../config/auth";
+import { setToken, setRefreshToken } from "../../../config/auth";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 const LoginPage: React.FC = () => {
@@ -21,20 +21,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setError("");
 
-    const routeByUserRole = (token: string) => {
-      const decoded = parseJwt(token);
-      if (decoded && decoded.auth) {
-        if (decoded.auth.includes("ROLE_INTEGRATED_ADMIN")) {
-          window.location.href = "/dashboard";
-          return;
-        } else if (decoded.auth.includes("ROLE_COMPANY_ADMIN")) {
-          window.location.href = "/admin/company/pending";
-          return;
-        } else if (decoded.auth.includes("ROLE_USER") || decoded.auth.includes("ROLE_COMPANY_USER")) {
-          window.location.href = "/seller/dashboard";
-          return;
-        }
-      }
+    const routeByUserRole = () => {
       window.location.href = "/";
     };
 
@@ -52,7 +39,7 @@ const LoginPage: React.FC = () => {
           const { accessToken, refreshToken } = response.data.data;
           setToken(accessToken);
           if (refreshToken) setRefreshToken(refreshToken);
-          routeByUserRole(accessToken);
+          routeByUserRole();
         }
       } else {
         // 1차 로그인 라우트
@@ -74,7 +61,7 @@ const LoginPage: React.FC = () => {
           } else {
             setToken(accessToken);
             if (refreshToken) setRefreshToken(refreshToken);
-            routeByUserRole(accessToken);
+            routeByUserRole();
           }
         }
       }

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import CommonLayout from "../layout/CommonLayout";
 import {
   Search,
   Filter,
@@ -8,7 +7,6 @@ import {
   Clock,
   AlertCircle,
   FileText,
-  ArrowUpDown,
 } from "lucide-react";
 
 // Mock Data: 실제 백엔드 API 연동 시 이 부분을 fetch 데이터로 교체합니다.
@@ -63,7 +61,7 @@ const MOCK_HISTORY = [
 const TransactionHistory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
-    
+
   // 상태값에 따른 UI 설정
   const statusConfig: any = {
     COMPLETED: {
@@ -93,7 +91,7 @@ const TransactionHistory = () => {
   });
 
   return (
-    <CommonLayout>
+    <>
       <div className="px-6 py-12 mx-auto max-w-7xl">
         {/* 헤더 섹션: 페이지 목적 명시 */}
         <div className="flex flex-col items-end justify-between gap-6 mb-10 md:flex-row">
@@ -227,7 +225,7 @@ const TransactionHistory = () => {
           </table>
         </div>
       </div>
-    </CommonLayout>
+    </>
   );
 };
 

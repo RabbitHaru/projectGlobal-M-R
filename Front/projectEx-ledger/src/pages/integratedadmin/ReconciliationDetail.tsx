@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import CommonLayout from "../../components/layout/CommonLayout";
 // 🌟 마스터키 불러오기
 import http from '../../config/http';
 import { toast } from 'sonner';
@@ -27,13 +26,13 @@ export default function ReconciliationDetail() {
         reason,
       });
 
-      if (response && response.status === 'SUCCESS') {
+      if (response && response.data && response.data.status === 'SUCCESS') {
         toast.info('✅ 유저에게 오차 수정 동의 요청이 발송되었습니다. (유저 동의 대기 상태)');
         setCorrectedAmount('');
         setReason('');
-        navigate('/pages/admin/settlement');
+        navigate('/admin/list');
       } else {
-        toast.error(`❌ 요청 실패: ${response?.message || '알 수 없는 오류'}`);
+        toast.error(`❌ 요청 실패: ${response?.data?.message || '알 수 없는 오류'}`);
       }
     } catch (error) {
       console.error('API 에러:', error);
@@ -47,11 +46,11 @@ export default function ReconciliationDetail() {
     try {
       // 🌟 수정: http 적용
       const response: any = await http.post(`/admin/settlements/${id}/approve`);
-      if (response && response.status === 'SUCCESS') {
+      if (response && response.data && response.data.status === 'SUCCESS') {
         toast.info('✅ 유저에게 최종 승인 동의를 요청했습니다!');
-        navigate('/pages/admin/settlement');
+        navigate('/admin/list');
       } else {
-        toast.error(`❌ 승인 요청 실패: ${response?.message || '알 수 없는 오류'}`);
+        toast.error(`❌ 승인 요청 실패: ${response?.data?.message || '알 수 없는 오류'}`);
       }
     } catch (error) {
       console.error('API 에러:', error);
@@ -60,7 +59,7 @@ export default function ReconciliationDetail() {
   };
 
   return (
-    <CommonLayout>
+    <>
       <main className="w-full max-w-4xl px-4 py-12 mx-auto">
         <div className="p-8 bg-white border border-gray-200 shadow-sm rounded-xl">
           <h2 className="text-2xl font-bold text-gray-900">📊 정산 대사 상세 및 승인 (ID: {id})</h2>
@@ -114,6 +113,6 @@ export default function ReconciliationDetail() {
           </div>
         </div>
       </main>
-    </CommonLayout>
+    </>
   );
 }
