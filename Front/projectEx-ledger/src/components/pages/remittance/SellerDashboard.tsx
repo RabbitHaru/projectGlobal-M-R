@@ -1,266 +1,370 @@
 import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import CommonLayout from "../../layout/CommonLayout";
-import ExchangeRateChart from "../../widgets/finance/ExchangeRateChart";
-import AccountVerification from "./AccountVerification";
-import RemittanceTracking from "./Tracking/RemittanceTracking";
-import RemittanceRequestModal from "./RemittanceRequestModal";
-// 🌟 토스트 알림 훅 임포트
-import { useToast } from "../../../components/notification/ToastProvider";
+import { useToast } from "../../notification/ToastProvider";
 import {
-  Wallet,
-  ArrowLeftRight,
-  Coins,
+  Building2,
   Send,
-  Globe,
-  Activity,
-  ClipboardCheck,
-  Landmark,
+  Wallet,
+  CheckCircle2,
+  X,
+  Loader2,
 } from "lucide-react";
-import type { ExchangeRate } from "../../../types/exchange";
 
-const SellerDashboard = () => {
-  // 🌟 ToastContextType의 실제 구현에 맞춰 showToast 추출
+// 백엔드 명세에 맞춘 수취인 데이터 (실제 데이터 연동 전 초기값)
+const RECIPIENTS = [
+  {
+    id: "REC_001",
+    name: "Global Supply Co.",
+    bank: "Chase Bank",
+    currency: "USD",
+    country: "미국",
+  },
+  {
+    id: "REC_002",
+    name: "Tech Parts Ltd.",
+    bank: "MUFG Bank",
+    currency: "JPY",
+    country: "일본",
+  },
+  {
+    id: "REC_003",
+    name: "Euro Trading GmbH",
+    bank: "Deutsche Bank",
+    currency: "유럽연합",
+  },
+  {
+    id: "REC_004",
+    name: "London Logistics",
+    bank: "HSBC Bank",
+    currency: "영국",
+  },
+  {
+    id: "REC_005",
+    name: "Beijing Tech",
+    bank: "Bank of China",
+    currency: "중국",
+  },
+  {
+    id: "REC_006",
+    name: "Asia Pacific Ltd.",
+    bank: "DBS Bank",
+    currency: "싱가포르",
+  },
+  {
+    id: "REC_007",
+    name: "HK Trading",
+    bank: "Standard Chartered",
+    currency: "홍콩",
+  },
+];
+
+const STEPS = ["접수", "환전", "송금", "완료"];
+
+const SellerDashboard: React.FC = () => {
   const { showToast } = useToast();
-  const location = useLocation();
-  const [rates, setRates] = useState<ExchangeRate[]>([]);
+  const [selectedRecipient, setSelectedRecipient] = useState(RECIPIENTS[0]);
+  const [amount, setAmount] = useState<string>("");
+  const [currentRate, setCurrentRate] = useState<number>(1350);
+  const [balance, setBalance] = useState<number>(0); // 🌟 실제 API 로드용 초기값
 
-  // 🌟 [핀테크 로직] 보유한 원화(KRW)를 외화로 바꿔 보내는 구조
-  const [krwBalance, setKrwBalance] = useState<number>(25400000); // 2,540만원 보유
-  const [outboundAmount, setOutboundAmount] = useState<number>(0); // 송금할 원화 금액
-  const [targetCurrency, setTargetCurrency] = useState("USD");
-  const [liveRate, setLiveRate] = useState<number>(0);
+  const [isRemitModalOpen, setIsRemitModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [remitStep, setRemitStep] = useState(0);
 
-  // 시뮬레이션용 해외 수취인 데이터
-  const [beneficiaries] = useState([
-    {
-      id: 1,
-      name: "Global Supply Co.",
-      country: "USA",
-      bank: "Chase Bank",
-      swift: "CHASUS33",
-    },
-    {
-      id: 2,
-      name: "Tech Parts Ltd.",
-      country: "Japan",
-      bank: "MUFG Bank",
-      swift: "MUFGJPJT",
-    },
-  ]);
-  const [selectedBeneficiary, setSelectedBeneficiary] = useState<number | null>(
-    null,
-  );
-
-  const [currentStatus, setCurrentStatus] = useState<any>("WAITING");
-  const [currentTxId, setCurrentTxId] = useState<string>("NEW-REQ");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [verifiedName, setVerifiedName] = useState("");
-
-  // 🌟 Frankfurter 무료 API로 실시간 환율 가져오기
-  useEffect(() => {
-    const fetchLiveRate = async () => {
-      try {
-        const res = await fetch(
-          `https://api.frankfurter.app/latest?from=KRW&to=${targetCurrency}`,
-        );
-        const data = await res.json();
-        setLiveRate(data.rates[targetCurrency]);
-      } catch (err) {
-        console.error("환율 로드 실패:", err);
-      }
-    };
-    fetchLiveRate();
-  }, [targetCurrency]);
-
-  const estimatedFX = outboundAmount * liveRate;
-
-  const handleRequestSuccess = (transactionId: string) => {
-    setCurrentTxId(transactionId);
-    setCurrentStatus("REVIEWING");
-
-    showToast(
-      `해외 송금 시작: ${targetCurrency} ${estimatedFX.toFixed(2)} 검토 중`,
-      "INFO",
-    );
-
-    // 4초 뒤: 2단계 환전 완료
-    setTimeout(() => setCurrentStatus("EXCHANGED"), 4000);
-
-    // 8초 뒤: 3단계 현지 송금 중
-    setTimeout(() => setCurrentStatus("TRANSFERRING"), 8000);
-
-    // 12초 뒤: 4단계 최종 완료 시뮬레이션
-    setTimeout(() => {
-      setCurrentStatus("COMPLETED");
-      setKrwBalance((prev) => prev - outboundAmount);
-
-      showToast("해외 현지 은행으로 송금이 최종 완료되었습니다.", "SUCCESS");
-    }, 12000);
+  // 1. 실제 원화 잔액 조회 API 연동
+  const fetchBalance = async () => {
+    try {
+      const res = await fetch("/api/v1/user/balance");
+      if (!res.ok) throw new Error("잔액 로드 실패");
+      const data = await res.json();
+      setBalance(data.krwBalance); // 서버 응답 필드: krwBalance
+    } catch (error) {
+      console.error("잔액 동기화 에러:", error);
+    }
   };
 
-  const handleSendMoney = () => {
-    if (outboundAmount > krwBalance) {
-      alert("잔액이 부족합니다.");
+  useEffect(() => {
+    fetchBalance();
+    const fetchLatestRate = async () => {
+      try {
+        const response = await fetch(
+          `https://api.frankfurter.app/latest?from=KRW&to=${selectedRecipient.currency}`,
+        );
+        const data = await response.json();
+        const rawRate = data.rates[selectedRecipient.currency];
+        const multiplier = selectedRecipient.currency === "JPY" ? 100 : 1;
+        setCurrentRate(Number(((1 / rawRate) * multiplier).toFixed(2)));
+      } catch (error) {
+        console.error("환율 로드 실패");
+      }
+    };
+    fetchLatestRate();
+  }, [selectedRecipient.currency]);
+
+  // 2. 실제 해외 송금 실행 API 호출
+  const executeRemittanceAPI = async () => {
+    const totalCost = Number(amount) * currentRate;
+
+    const requestBody = {
+      receiverId: selectedRecipient.id,
+      targetCurrency: selectedRecipient.currency,
+      targetAmount: Number(amount),
+      appliedExchangeRate: currentRate,
+      totalKrwAmount: totalCost,
+    };
+
+    try {
+      const res = await fetch("/api/v1/remittance/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        if (error.code === "INSUFFICIENT_BALANCE") {
+          showToast("잔액이 부족하여 송금을 진행할 수 없습니다.", "ERROR");
+        } else {
+          showToast("송금 요청 중 서버 오류가 발생했습니다.", "ERROR");
+        }
+        return false;
+      }
+      return true;
+    } catch (err) {
+      showToast("네트워크 연결을 확인해 주세요.", "ERROR");
+      return false;
+    }
+  };
+
+  // 3. 송금 확인 및 애니메이션 실행 (버그 수정됨)
+  const confirmRemittance = async () => {
+    const totalCost = Number(amount) * currentRate;
+
+    if (balance < totalCost) {
+      showToast("잔액이 부족합니다.", "ERROR");
       return;
     }
-    setCurrentTxId(
-      `OUT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-    );
-    setIsModalOpen(true);
+
+    setIsRemitModalOpen(false);
+
+    // 🌟 실제 API 호출 먼저 수행
+    const apiSuccess = await executeRemittanceAPI();
+    if (!apiSuccess) return;
+
+    // 🌟 성공 시에만 트래킹 애니메이션 시작
+    setIsProcessing(true);
+    setRemitStep(0);
+
+    let currentStep = 0;
+    const interval = setInterval(() => {
+      currentStep += 1;
+
+      if (currentStep >= 3) {
+        clearInterval(interval);
+        setRemitStep(3);
+
+        // 🌟 Side Effects: 알림 및 데이터 최신화 (중복 방지 로직)
+        fetchBalance();
+        showToast("송금이 성공적으로 완료되었습니다.", "SUCCESS");
+        setTimeout(() => setIsProcessing(false), 8000);
+      } else {
+        setRemitStep(currentStep);
+      }
+    }, 4000);
   };
 
   return (
     <CommonLayout>
-      <div className="w-full p-6 mx-auto lg:p-10 max-w-7xl">
-        {/* 상단: 자산 요약 섹션 */}
-        <div className="grid grid-cols-1 gap-6 mb-12 md:grid-cols-3">
-          <div className="md:col-span-2 bg-slate-900 p-10 rounded-[48px] text-white shadow-2xl relative overflow-hidden group">
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3 opacity-50">
-                <Wallet size={16} />
-                <p className="text-[11px] font-black uppercase tracking-widest">
-                  Available KRW Balance
-                </p>
-              </div>
-              <h2 className="text-5xl font-black tracking-tighter">
-                {krwBalance.toLocaleString()}
-                <span className="ml-2 text-2xl font-bold text-teal-400 text-opacity-80">
+      <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-8 bg-[#fcfdfe] min-h-screen animate-in fade-in duration-500">
+        {/* 상단 잔액 요약 */}
+        <header className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center justify-center text-teal-400 shadow-xl w-14 h-14 bg-slate-900 rounded-2xl">
+              <Wallet size={28} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                Available KRW Balance
+              </p>
+              <h1 className="text-5xl font-black tracking-tighter text-slate-900">
+                {balance.toLocaleString()}{" "}
+                <span className="ml-1 font-sans text-xl font-medium text-slate-200">
                   KRW
                 </span>
-              </h2>
-              <div className="flex items-center gap-4 mt-8">
-                <span className="px-4 py-2 bg-white/10 rounded-2xl text-[12px] font-bold text-teal-400">
-                  송금 가능
-                </span>
-              </div>
-            </div>
-            <Activity
-              size={120}
-              className="absolute transition-all duration-700 -right-4 -bottom-4 text-white/5 group-hover:text-white/10"
-            />
-          </div>
-
-          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm flex flex-col justify-between">
-            <div>
-              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-6">
-                Current Processing
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="p-2 text-teal-600 rounded-lg bg-teal-50">
-                  <ClipboardCheck size={18} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">
-                    최근 활동
-                  </p>
-                  <h4 className="text-xl font-black text-slate-900">
-                    {currentStatus === "COMPLETED" ? "처리 완료" : "진행 중"}
-                  </h4>
-                </div>
-              </div>
-            </div>
-            <div className="pt-4 border-t border-slate-50">
-              <div className="w-full h-1.5 overflow-hidden rounded-full bg-slate-50">
-                <div
-                  className={`h-full transition-all duration-1000 ${currentStatus === "COMPLETED" ? "w-full bg-teal-500" : "w-[30%] bg-amber-400"}`}
-                />
-              </div>
+              </h1>
             </div>
           </div>
-        </div>
+          <button
+            onClick={() => showToast("원화 충전 기능을 실행합니다.", "INFO")}
+            className="w-full px-10 py-5 text-sm font-black text-white transition-all shadow-2xl md:w-auto bg-slate-900 rounded-2xl hover:bg-slate-800 active:scale-95 shadow-slate-200"
+          >
+            자금 충전하기
+          </button>
+        </header>
 
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
-          <div className="space-y-8 lg:col-span-2">
-            {/* 해외 수취인 선택 영역 */}
-            <div className="bg-white p-8 rounded-[48px] border border-slate-100 shadow-sm">
-              <h3 className="flex items-center gap-2 mb-6 text-lg font-black text-slate-800">
-                <Globe size={20} className="text-teal-600" /> 해외 수취인 선택
-              </h3>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {beneficiaries.map((b) => (
-                  <div
-                    key={b.id}
+        <main className="grid items-start grid-cols-1 gap-8 lg:grid-cols-12">
+          {/* 왼쪽: 수취인 리스트 (그래프 및 보안 카드 제거됨) */}
+          <div className="space-y-6 lg:col-span-7">
+            <section className="bg-white p-10 rounded-[48px] shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between px-2 mb-10">
+                <h2 className="text-2xl font-black tracking-tighter text-slate-900">
+                  해외 수취인 선택
+                </h2>
+                <div className="px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-bold text-slate-400 uppercase">
+                  Global Network Active
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {RECIPIENTS.map((r) => (
+                  <button
+                    key={r.id}
                     onClick={() => {
-                      setSelectedBeneficiary(b.id);
-                      setTargetCurrency(b.country === "USA" ? "USD" : "JPY");
+                      setSelectedRecipient(r);
+                      setIsProcessing(false);
                     }}
-                    className={`p-6 rounded-[32px] border-2 cursor-pointer transition-all ${selectedBeneficiary === b.id ? "border-teal-500 bg-teal-50/30" : "border-slate-50 hover:border-slate-200"}`}
+                    className={`p-6 rounded-[32px] border-2 transition-all text-left flex items-center gap-5 ${selectedRecipient.id === r.id ? "border-blue-500 bg-blue-50/20 shadow-md" : "border-slate-50 hover:border-slate-100 bg-white"}`}
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 text-white bg-slate-900 rounded-2xl">
-                        <Landmark size={20} />
-                      </div>
-                      <span className="text-[10px] font-black text-slate-300 uppercase">
-                        {b.swift}
-                      </span>
+                    <div
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center ${selectedRecipient.id === r.id ? "bg-blue-500 text-white shadow-lg" : "bg-slate-50 text-slate-300"}`}
+                    >
+                      <Building2 size={24} />
                     </div>
-                    <p className="font-black text-slate-800">{b.name}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-400">
-                      {b.bank} ({b.country})
-                    </p>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-black text-slate-800 text-[15px] tracking-tight truncate">
+                        {r.name}
+                      </h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">
+                        {r.currency} · {r.country}
+                      </p>
+                    </div>
+                  </button>
                 ))}
               </div>
-            </div>
-            <div className="bg-white p-8 rounded-[48px] shadow-sm border border-slate-100 h-[400px]">
-              <ExchangeRateChart rates={[]} selectedCurrency={targetCurrency} />
+            </section>
+
+            <div className="p-8 bg-blue-50/50 rounded-[40px] border border-blue-100/30 flex items-center gap-6">
+              <div className="flex items-center justify-center w-12 h-12 text-blue-600 bg-white shadow-sm rounded-2xl">
+                <CheckCircle2 size={24} />
+              </div>
+              <p className="text-xs font-black leading-relaxed tracking-tight text-blue-900/70">
+                KOREAEXIM 규격에 맞춰 전세계 주요 7개국 실시간 송금 네트워크가
+                활성화되어 있습니다.
+              </p>
             </div>
           </div>
 
-          <div className="space-y-8">
-            {/* 송금 계산기 */}
-            <div className="bg-slate-900 p-9 rounded-[48px] text-white shadow-2xl relative overflow-hidden group border border-white/5">
-              <div className="flex items-center gap-3 mb-10 opacity-60">
-                <Send size={20} className="text-teal-400" />
-                <span className="text-[11px] font-bold tracking-widest uppercase">
-                  Global Payout
-                </span>
+          {/* 오른쪽: 송금 입력 및 트래킹 위젯 */}
+          <aside className="sticky space-y-6 lg:col-span-5 top-10">
+            <div className="bg-slate-900 rounded-[56px] p-12 space-y-10 shadow-2xl">
+              <div className="space-y-8">
+                <div className="flex items-center gap-4 text-white">
+                  <div className="p-4 bg-blue-600 shadow-xl rounded-2xl shadow-blue-500/20">
+                    <Send size={24} />
+                  </div>
+                  <h3 className="text-2xl font-black tracking-tighter uppercase">
+                    Send Money
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">
+                    Amount ({selectedRecipient.currency})
+                  </label>
+                  <div className="bg-white/5 rounded-[32px] p-10 border border-white/10 focus-within:border-blue-500 transition-all">
+                    <input
+                      type="text"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full text-6xl font-black tracking-tighter text-white bg-transparent outline-none"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between px-6 py-4 text-xs font-bold border bg-white/5 rounded-2xl border-white/5">
+                  <span className="text-slate-500 uppercase tracking-widest text-[9px]">
+                    Current Rate
+                  </span>
+                  <span className="font-black tracking-tighter text-teal-400">
+                    1 {selectedRecipient.currency} = {currentRate} KRW
+                  </span>
+                </div>
               </div>
-              <input
-                type="number"
-                placeholder="0"
-                value={outboundAmount || ""}
-                onChange={(e) => setOutboundAmount(Number(e.target.value))}
-                className="w-full px-6 py-5 text-3xl font-black border outline-none bg-white/5 border-white/10 rounded-3xl focus:ring-2 focus:ring-teal-500/50"
-              />
+
+              {/* 실시간 송금 트래킹 */}
+              {isProcessing && (
+                <div className="p-8 bg-white/5 rounded-[32px] border border-white/10 space-y-8 animate-in slide-in-from-bottom-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-white">
+                      실시간 처리 상태
+                    </h4>
+                    <Loader2 className="text-blue-500 animate-spin" size={16} />
+                  </div>
+                  <div className="relative flex items-center justify-between px-2">
+                    <div className="absolute top-1.5 left-4 right-4 h-[1px] bg-white/10 -z-10" />
+                    {STEPS.map((step, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-col items-center gap-3"
+                      >
+                        <div
+                          className={`w-3 h-3 rounded-full transition-all duration-700 ${idx <= remitStep ? "bg-teal-400 shadow-[0_0_15px_rgba(45,212,191,0.8)] scale-125" : "bg-white/10"}`}
+                        />
+                        <span
+                          className={`text-[10px] font-black tracking-tighter ${idx <= remitStep ? "text-white" : "text-slate-600"}`}
+                        >
+                          {step}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <button
-                onClick={handleSendMoney}
-                disabled={
-                  !selectedBeneficiary ||
-                  outboundAmount <= 0 ||
-                  outboundAmount > krwBalance
-                }
-                className="w-full mt-8 py-6 bg-teal-500 hover:bg-teal-600 rounded-[28px] font-black text-white shadow-xl shadow-teal-900/40"
+                onClick={() => setIsRemitModalOpen(true)}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-8 rounded-[36px] font-black text-xl transition-all shadow-2xl active:scale-95"
               >
-                <Send size={20} className="inline mr-2" /> 해외 송금 실행
+                해외 송금 실행
               </button>
             </div>
-            {/* 하단 트래킹 위젯 */}
-            <RemittanceTracking
-              status={currentStatus}
-              transactionId={currentTxId}
-              updatedAt="실시간 업데이트 중"
-            />
-          </div>
-        </div>
+          </aside>
+        </main>
       </div>
 
-      <RemittanceRequestModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        initialReceiverName={
-          beneficiaries.find((b) => b.id === selectedBeneficiary)?.name || ""
-        }
-        onSuccess={handleRequestSuccess}
-        settlementData={{
-          amount: estimatedFX,
-          currency: targetCurrency,
-          rate: liveRate,
-          fee: 0,
-          finalAmount: outboundAmount,
-        }}
-      />
+      {/* 최종 승인 모달 */}
+      {isRemitModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/70 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-[56px] p-12 space-y-12 shadow-2xl animate-in zoom-in-95">
+            <h3 className="text-3xl font-black tracking-tighter text-center text-slate-900">
+              송금을 시작할까요?
+            </h3>
+            <div className="py-8 space-y-5 font-sans text-sm font-bold border-y border-slate-100">
+              <div className="flex justify-between text-slate-400">
+                <span>수취인</span>
+                <span className="text-slate-900">{selectedRecipient.name}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>최종 결제액</span>
+                <span className="text-2xl font-black text-blue-600">
+                  {(Number(amount) * currentRate).toLocaleString()} KRW
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setIsRemitModalOpen(false)}
+                className="flex-1 py-5 font-black transition-all text-slate-400 hover:bg-slate-50 rounded-2xl"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmRemittance}
+                className="flex-[2] bg-slate-900 text-white py-5 rounded-2xl font-black shadow-xl active:scale-95 transition-all"
+              >
+                승인 및 송금
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </CommonLayout>
   );
 };

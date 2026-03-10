@@ -24,6 +24,7 @@ import RemittanceManagement from "../pages/integratedadmin/RemittanceManagement"
 import TransactionHistory from "../components/dashboard/TransactionHistory";
 import RemittanceTracking from "../components/pages/remittance/Tracking/RemittanceTracking";
 import ExchangePage from "../components/widgets/finance/ExchangePage";
+import SettlementDashboard from "../components/pages/settlement/SettlementDashboard";
 
 const AppRoutes = () => {
   return (
@@ -35,6 +36,7 @@ const AppRoutes = () => {
       <Route path="/admin/settlement/:id" element={<ReconciliationDetail />} />
       <Route path="/pages/admin/settlement" element={<ReconciliationList />} />
       <Route path="/seller/dashboard" element={<SellerDashboard />} />
+      <Route path="/settlement" element={<SettlementDashboard />} />
       <Route path="/client" element={<ClientManagement />} />
       <Route path="/list" element={<MySettlementList />} />
       <Route path="/pages/remittance" element={<RemittanceManagement />} />

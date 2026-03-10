@@ -12,6 +12,7 @@ import {
   BarChart2,
   History,
   ArrowLeftRight,
+  ArrowDownLeft,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -70,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <Home size={18} /> 홈
         </Link>
 
-        {/* 🌟 User Service 섹션 (Exchange) */}
+        {/* 🌟 User Service 섹션 */}
         <div className="px-4 pt-6 pb-2">
           <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
             User Service
@@ -99,12 +100,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <ArrowLeftRight size={18} /> 실시간 환전 및 출금
         </Link>
 
-        {/* 🌟 Corporate Service 섹션 (Settlement) */}
+        {/* 🌟 Corporate Service 섹션 (개편됨) */}
         <div className="px-4 pt-10 pb-2 mt-6 border-t border-slate-50">
           <p className="text-[10px] font-black text-teal-600/50 uppercase tracking-widest italic">
             Corporate Service
           </p>
         </div>
+
+        {/* 해외 송금 메뉴 */}
         <Link
           to="/seller/dashboard"
           onClick={onClose}
@@ -114,8 +117,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
           }`}
         >
-          <LayoutDashboard size={18} /> 정산 대시보드
+          <SendHorizontal size={18} /> 해외 송금 (Payout)
         </Link>
+
+        {/* 수익 정산 메뉴 (신규 추가) */}
+        <Link
+          to="/settlement"
+          onClick={onClose}
+          className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${
+            isActive("/settlement")
+              ? "bg-teal-50 text-teal-600"
+              : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+          }`}
+        >
+          <ArrowDownLeft size={18} /> 수익 정산 (Settlement)
+        </Link>
+
         <Link
           to="/seller/history"
           onClick={onClose}
@@ -128,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <History size={18} /> 정산 상세 내역
         </Link>
 
-        {/* 🌟 Company Admin Area (Manager A님 작업물) */}
+        {/* 🌟 Company Admin Area */}
         <div className="px-4 pt-10 pb-2 mt-6 border-t border-slate-50">
           <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
             Company Admin Area
