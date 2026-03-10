@@ -32,15 +32,7 @@ const AppRoutes = () => {
     <Routes>
       {/* 누구나 접근 가능한 기본 렌딩 페이지 */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/dashboard" element={<AdminDashboard />} />
-      <Route path="/admin/list" element={<ReconciliationList />} />
-      <Route path="/admin/settlement/:id" element={<ReconciliationDetail />} />
-      <Route path="/pages/admin/settlement" element={<ReconciliationList />} />
-      <Route path="/seller/dashboard" element={<SellerDashboard />} />
-      <Route path="/client" element={<ClientManagement />} />
-      <Route path="/list" element={<MySettlementList />} />
-      <Route path="/seller/dashboard" element={<SellerDashboard />} />
-      <Route path="/remittance" element={<RemittanceManagement />} />
+      <Route path="/finance" element={<LandingPage />} />
       {/* 인증 불필요 라우트 */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
@@ -51,31 +43,27 @@ const AppRoutes = () => {
       {/* 보안/인증 필요 라우트 */}
       <Route element={<ProtectedRoute />}>
         <Route element={<RootLayout />}>
-          {/* 일반 로그인 사용자 접근 가능 (User, Company Admin, Integrated Admin) */}
-
-          <Route
-            path="/settlement"
-            element={<div className="p-4">Settlement</div>}
-          />
+          {/* ----- 일반 로그인 사용자 공통 접근 (User, Company Admin, Integrated Admin) ----- */}
+          <Route path="/settlement" element={<SellerDashboard />} />
           <Route path="/company/join" element={<CompanyJoin />} />
+          <Route path="/seller/dashboard" element={<SellerDashboard />} />
+          <Route path="/list" element={<MySettlementList />} />
+          <Route path="/remittance" element={<RemittanceManagement />} />
 
-          {/* 최고 관리자(Integrated Admin) 전용 라우트 */}
-          <Route
-            element={
-              <ProtectedRoute allowedRoles={["ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]} />
-            }
-          >
+          {/* ----- 최고 관리자(Integrated Admin) 전용 라우트 ----- */}
+          <Route element={<ProtectedRoute allowedRoles={["ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]} />}>
+            <Route path="/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/list" element={<ReconciliationList />} />
+            <Route path="/admin/settlement/:id" element={<ReconciliationDetail />} />
+            <Route path="/pages/admin/settlement" element={<ReconciliationList />} />
+            <Route path="/client" element={<ClientManagement />} />
             <Route path="/admin/logs" element={<AdminLogList />} />
             <Route path="/admin/health" element={<SystemHealth />} />
             <Route path="/admin/companies/review" element={<CompanyReview />} />
           </Route>
 
-          {/* 기업 관리자(Company Admin) 전용 라우트 */}
-          <Route
-            element={
-              <ProtectedRoute allowedRoles={["ROLE_COMPANY_ADMIN", "COMPANY_ADMIN", "ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]} />
-            }
-          >
+          {/* ----- 기업 관리자(Company Admin) 전용 라우트 ----- */}
+          <Route element={<ProtectedRoute allowedRoles={["ROLE_COMPANY_ADMIN", "COMPANY_ADMIN"]} />}>
             <Route path="/admin/company/pending" element={<PendingUsers />} />
           </Route>
         </Route>

@@ -14,6 +14,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import Sidebar from "./Sidebar";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 
 interface LayoutProps {
   children: ReactNode;
@@ -33,24 +34,47 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
   const isActive = (path: string) => location.pathname === path;
 
   useEffect(() => {
-    const eventSource = new EventSource("/api/v1/notifications/subscribe");
+    if (!token) return;
 
-    eventSource.addEventListener("connect", () => {
-      console.log("✅ 알림 서버 연결 성공");
-    });
+    const abortController = new AbortController();
 
-    eventSource.addEventListener("remittance_update", (event: any) => {
-      const receivedMessage = event.data;
-      setNotifications((prev) => [receivedMessage, ...prev].slice(0, 5));
-    });
-
-    eventSource.onerror = () => {
-      console.error("❌ SSE 연결 오류");
-      eventSource.close();
+    const connectSSE = async () => {
+      await fetchEventSource("/api/v1/notifications/subscribe", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "text/event-stream",
+        },
+        signal: abortController.signal,
+        onopen: async (response) => {
+          if (response.ok && response.status === 200) {
+            console.log("✅ 알림 서버 연결 성공");
+          } else {
+            console.error("❌ 알림 서버 연결 실패", response.status);
+          }
+        },
+        onmessage: (event) => {
+          if (event.event === "remittance_update") {
+            const receivedMessage = event.data;
+            setNotifications((prev) => [receivedMessage, ...prev].slice(0, 5));
+          } else if (event.event === "connect") {
+            // connection established event from Spring
+          }
+        },
+        onerror: (err) => {
+          console.error("❌ SSE 연결 오류", err);
+          // throw Error to trigger retry, or return retry interval
+          return 5000;
+        },
+      });
     };
 
-    return () => eventSource.close();
-  }, []);
+    connectSSE();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [token]);
 
   return (
     <div className="flex min-h-screen font-sans bg-slate-50/50 text-slate-900">
@@ -103,21 +127,19 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
             <nav className="items-center hidden gap-8 text-[13px] font-black md:flex">
               <Link
                 to="/"
-                className={`flex items-center gap-2 transition-colors ${
-                  isActive("/")
+                className={`flex items-center gap-2 transition-colors ${isActive("/")
                     ? "text-teal-600"
                     : "text-slate-400 hover:text-slate-600"
-                }`}
+                  }`}
               >
                 <BarChart2 size={16} /> 실시간 환율
               </Link>
               <Link
                 to="/seller/dashboard"
-                className={`flex items-center gap-2 transition-colors ${
-                  isActive("/seller/dashboard")
+                className={`flex items-center gap-2 transition-colors ${isActive("/seller/dashboard")
                     ? "text-teal-600"
                     : "text-slate-400 hover:text-slate-600"
-                }`}
+                  }`}
               >
                 <LayoutDashboard size={16} /> 셀러 대시보드
               </Link>
@@ -128,11 +150,10 @@ const CommonLayout: React.FC<LayoutProps> = ({ children }) => {
               <div className="relative">
                 <button
                   onClick={() => setShowNotiPanel(!showNotiPanel)}
-                  className={`p-2.5 rounded-xl transition-all relative ${
-                    showNotiPanel
+                  className={`p-2.5 rounded-xl transition-all relative ${showNotiPanel
                       ? "bg-teal-50 text-teal-600 shadow-inner"
                       : "text-slate-400 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <Bell size={22} />
                   {notifications.length > 0 && (

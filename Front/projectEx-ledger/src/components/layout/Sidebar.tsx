@@ -186,7 +186,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </Link>
         )}
 
-        {(hasRole('ROLE_COMPANY_ADMIN') || hasRole('ROLE_INTEGRATED_ADMIN')) && (
+        {hasRole('ROLE_COMPANY_ADMIN') && (
           <Link
             to="/admin/company/pending"
             onClick={onClose}

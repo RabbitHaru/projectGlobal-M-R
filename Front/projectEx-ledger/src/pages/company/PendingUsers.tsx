@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CommonLayout from "../../components/layout/CommonLayout";
-import { authFetch } from '../../utils/api';
+import http from '../../config/http';
 import { toast } from 'sonner';
 
 interface PendingUser {
@@ -17,10 +17,9 @@ const PendingUsers: React.FC = () => {
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            const res = await authFetch('/api/company/users/pending');
-            if (res && res.ok) {
-                const data = await res.json();
-                setUsers(data.data || []);
+            const res: any = await http.get('/company/users/pending');
+            if (res && res.status === 'SUCCESS') {
+                setUsers(res.data || []);
             }
         } catch (error) {
             console.error("데이터 로드 실패:", error);
@@ -37,15 +36,12 @@ const PendingUsers: React.FC = () => {
         if (!window.confirm(`${userName} 님의 소속(가입)을 승인하시겠습니까?`)) return;
 
         try {
-            const res = await authFetch(`/api/company/users/${userId}/approve`, {
-                method: 'POST'
-            });
-            if (res && res.ok) {
+            const res: any = await http.post(`/company/users/${userId}/approve`);
+            if (res && res.status === 'SUCCESS') {
                 toast.success("✅ 성공적으로 승인되었습니다.");
                 fetchUsers();
             } else if (res) {
-                const data = await res.json();
-                toast.error(`❌ 승인 실패: ${data.message || '알 수 없는 오류'}`);
+                toast.error(`❌ 승인 실패: ${res.message || '알 수 없는 오류'}`);
             }
         } catch (error) {
             toast.error("서버 통신 중 오류가 발생했습니다.");

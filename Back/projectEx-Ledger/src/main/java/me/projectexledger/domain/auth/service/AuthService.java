@@ -16,6 +16,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import java.util.List;
+import java.time.Duration;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 
@@ -29,6 +33,7 @@ public class AuthService {
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final TurnstileService turnstileService;
     private final GoogleAuthenticator googleAuthenticator;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Transactional
     public Long signup(SignupRequest request) {
@@ -79,15 +84,15 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         String jwt = jwtTokenProvider.createToken(authentication);
+        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
 
-        // 모든 사용자에게 예외 없이 MFA 검증 및 설정 강제 (로그인 시점에는 설정 여부만 프론트에 알림)
+        redisTemplate.opsForValue().set("RT:" + authentication.getName(), refreshToken, Duration.ofDays(7));
+
         if (!member.isMfaEnabled()) {
-            // 아직 설정을 안 했다면, frontend가 setupMfa를 호출하도록 유도하되 로그인은 진행시킴
-            return new TokenResponse(jwt, "Bearer", false, true);
+            return new TokenResponse(jwt, refreshToken, "Bearer", false, true);
         }
 
-        // 로그인은 성공. JIT MFA 방식이므로 로그인 시점에는 인증을 요구하지 않음
-        return new TokenResponse(jwt, "Bearer", false, false);
+        return new TokenResponse(jwt, refreshToken, "Bearer", false, false);
     }
 
     @Transactional
@@ -113,7 +118,38 @@ public class AuthService {
         }
 
         String jwt = jwtTokenProvider.createToken(authentication);
-        return new TokenResponse(jwt, "Bearer", false, false);
+        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+
+        redisTemplate.opsForValue().set("RT:" + authentication.getName(), refreshToken, Duration.ofDays(7));
+
+        return new TokenResponse(jwt, refreshToken, "Bearer", false, false);
+    }
+
+    @Transactional
+    public TokenResponse refreshToken(String refreshToken) {
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new IllegalArgumentException("유효하지 않은 Refresh Token 입니다. 다시 로그인해주세요.");
+        }
+
+        String email = jwtTokenProvider.getSubjectFromToken(refreshToken);
+
+        String savedToken = (String) redisTemplate.opsForValue().get("RT:" + email);
+        if (savedToken == null || !savedToken.equals(refreshToken)) {
+            throw new IllegalArgumentException("로그아웃 되었거나 무효화된 토큰입니다. 다시 로그인해주세요.");
+        }
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(email, null,
+                List.of(new SimpleGrantedAuthority(member.getRole().name())));
+
+        String newAccessToken = jwtTokenProvider.createToken(authentication);
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(authentication);
+
+        redisTemplate.opsForValue().set("RT:" + email, newRefreshToken, Duration.ofDays(7));
+
+        return new TokenResponse(newAccessToken, newRefreshToken, "Bearer", false, false);
     }
 
     @Transactional

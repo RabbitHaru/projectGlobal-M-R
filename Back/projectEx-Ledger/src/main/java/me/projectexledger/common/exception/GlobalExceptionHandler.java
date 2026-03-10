@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<ApiResponse<Object>> handleException(Exception e) {
-        log.error("handleEntityNotFoundException", e);
+        log.error("Unhandled Exception occurred", e);
         ApiResponse<Object> response = ApiResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR.getMessage());
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }

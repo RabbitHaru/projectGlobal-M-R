@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CommonLayout from "../../../layout/CommonLayout";
-import { authFetch } from '../../../../utils/api';
+import http from '../../../../config/http';
 
 interface AuditLog {
     id: number;
@@ -21,10 +21,9 @@ const AdminLogList: React.FC = () => {
         const fetchLogs = async () => {
             setIsLoading(true);
             try {
-                const res = await authFetch('/api/admin/audit/logs?size=100&sort=id,desc');
-                if (res && res.ok) {
-                    const data = await res.json();
-                    setLogs(data.data?.content || []);
+                const res = await http.get('/admin/audit/logs?size=100&sort=id,desc');
+                if (res.data) {
+                    setLogs(res.data?.content || []);
                 }
             } catch (error) {
                 console.error("감사 로그 로드 실패:", error);

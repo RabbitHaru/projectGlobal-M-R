@@ -7,6 +7,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public class TokenResponse {
     private String accessToken;
+    private String refreshToken;
     private String tokenType;
     private boolean mfaRequired;
     private boolean mfaSetupRequired;

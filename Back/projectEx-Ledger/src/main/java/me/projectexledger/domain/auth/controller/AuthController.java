@@ -21,6 +21,7 @@ import me.projectexledger.common.annotation.RequireMfa;
 import org.springframework.web.bind.annotation.GetMapping;
 import java.security.Principal;
 import java.util.Map;
+import me.projectexledger.domain.auth.dto.TokenRefreshRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -46,6 +47,12 @@ public class AuthController {
     public ApiResponse<TokenResponse> loginWithMfa(@Valid @RequestBody MfaLoginRequest request) {
         TokenResponse tokenResponse = authService.loginWithMfa(request);
         return ApiResponse.success("MFA 로그인 성공", tokenResponse);
+    }
+
+    @PostMapping("/refresh")
+    public ApiResponse<TokenResponse> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
+        TokenResponse tokenResponse = authService.refreshToken(request.getRefreshToken());
+        return ApiResponse.success("토큰 재발급 성공", tokenResponse);
     }
 
     @PostMapping("/mfa/setup")

@@ -4,7 +4,7 @@ import { Button } from "../common/Button";
 import { Input } from "../common/Input";
 import { OtpInput } from "../common/OtpInput";
 import http from "../../../config/http";
-import { setToken } from "../../../config/auth";
+import { setToken, setRefreshToken, parseJwt } from "../../../config/auth";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 const LoginPage: React.FC = () => {
@@ -21,6 +21,23 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setError("");
 
+    const routeByUserRole = (token: string) => {
+      const decoded = parseJwt(token);
+      if (decoded && decoded.auth) {
+        if (decoded.auth.includes("ROLE_INTEGRATED_ADMIN")) {
+          window.location.href = "/dashboard";
+          return;
+        } else if (decoded.auth.includes("ROLE_COMPANY_ADMIN")) {
+          window.location.href = "/admin/company/pending";
+          return;
+        } else if (decoded.auth.includes("ROLE_USER") || decoded.auth.includes("ROLE_COMPANY_USER")) {
+          window.location.href = "/seller/dashboard";
+          return;
+        }
+      }
+      window.location.href = "/";
+    };
+
     if (!turnstileToken) {
       setError("Turnstile (봇 방지) 인증이 완료되지 않았습니다.");
       return;
@@ -32,15 +49,16 @@ const LoginPage: React.FC = () => {
         const codeNum = mfaCodeArg ? Number(mfaCodeArg) : Number(otpCode);
         const response = await http.post('/auth/login/mfa', { email, password, code: codeNum, turnstileToken });
         if (response.data && response.data.data) {
-          const { accessToken } = response.data.data;
+          const { accessToken, refreshToken } = response.data.data;
           setToken(accessToken);
-          window.location.href = '/';
+          if (refreshToken) setRefreshToken(refreshToken);
+          routeByUserRole(accessToken);
         }
       } else {
         // 1차 로그인 라우트
         const response = await http.post('/auth/login', { email, password, turnstileToken });
         if (response.data && response.data.data) {
-          const { accessToken, mfaRequired, mfaSetupRequired } = response.data.data;
+          const { accessToken, refreshToken, mfaRequired, mfaSetupRequired } = response.data.data;
 
           if (mfaSetupRequired) {
             setError('보안 강화를 위해 구글 OTP 최초 설정이 필요합니다. 설정 페이지로 이동합니다.');
@@ -55,7 +73,8 @@ const LoginPage: React.FC = () => {
             setError(''); // 이전 에러 초기화
           } else {
             setToken(accessToken);
-            window.location.href = '/';
+            if (refreshToken) setRefreshToken(refreshToken);
+            routeByUserRole(accessToken);
           }
         }
       }
@@ -66,8 +85,8 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="w-full">
-      <h2 className="mb-6 text-2xl font-bold text-center text-gray-800">
-        로그인
+      <h2 className="mb-8 text-2xl font-bold text-center text-slate-800 tracking-tight">
+        환영합니다
       </h2>
 
       {error && (
@@ -114,15 +133,15 @@ const LoginPage: React.FC = () => {
           />
         </div>
 
-        <Button type="submit" className="w-full mt-4">
+        <Button type="submit" className="w-full mt-6 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-[14px] font-bold text-[14px] transition-all shadow-lg active:scale-[0.98]">
           로그인
         </Button>
       </form>
 
-      <div className="mt-6 text-sm text-center text-gray-600">
+      <div className="mt-8 text-[13px] font-medium text-center text-slate-500">
         계정이 없으신가요?{" "}
-        <Link to="/signup" className="text-blue-600 hover:text-blue-800">
-          회원가입
+        <Link to="/signup" className="text-teal-600 font-bold hover:text-teal-700 transition-colors">
+          무료로 회원가입
         </Link>
       </div>
     </div>

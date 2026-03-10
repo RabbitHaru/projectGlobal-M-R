@@ -19,7 +19,7 @@ const CompanyReview: React.FC = () => {
 
     const fetchPendingCompanies = async () => {
         try {
-            const { data } = await http.get("/api/admin/companies/pending");
+            const { data } = await http.get("/admin/companies/pending");
             if (data.status === "SUCCESS") {
                 setPendingList(data.data);
             }
@@ -38,7 +38,7 @@ const CompanyReview: React.FC = () => {
     const handleApprove = async (userId: number) => {
         if (!window.confirm("이 기업 회원을 승인하시겠습니까?")) return;
         try {
-            await http.post(`/api/admin/companies/${userId}/approve`, {});
+            await http.post(`/admin/companies/${userId}/approve`, {});
             toast.success("성공적으로 승인되었습니다.");
             fetchPendingCompanies();
         } catch (err: any) {
@@ -49,7 +49,7 @@ const CompanyReview: React.FC = () => {
     const handleReject = async (userId: number) => {
         if (!window.confirm("정말로 이 기업 가입을 반려하시겠습니까? (복구 불가)")) return;
         try {
-            await http.post(`/api/admin/companies/${userId}/reject`, {});
+            await http.post(`/admin/companies/${userId}/reject`, {});
             toast.info("가입 요청이 반려되었습니다.");
             fetchPendingCompanies();
         } catch (err: any) {
@@ -59,7 +59,7 @@ const CompanyReview: React.FC = () => {
 
     const handleViewLicense = async (uuid: string) => {
         try {
-            const response = await http.get(`/api/admin/companies/license/${uuid}`, {
+            const response = await http.get(`/admin/companies/license/${uuid}`, {
                 responseType: "blob"
             });
             const imageUrl = URL.createObjectURL(response.data);

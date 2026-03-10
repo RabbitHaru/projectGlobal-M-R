@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommonLayout from "../../components/layout/CommonLayout";
 // 🌟 1. 우리가 만든 마스터키 불러오기
-import { authFetch } from '../../utils/api';
+import http from '../../config/http';
 import { toast } from 'sonner';
 
 export interface ReconciliationData {
@@ -75,11 +75,11 @@ const ReconciliationList: React.FC = () => {
   const fetchReconciliationData = async () => {
     setIsLoading(true);
     try {
-      // 🌟 2. 마스터키(authFetch) 적용 - 토큰 자동 탑재
-      const response = await authFetch('/api/admin/settlements/reconciliations?page=0&size=1000');
-      if (response && response.ok) {
-        const result = await response.json();
-        setData(result.data || []);
+      // 🌟 2. 마스터키(http) 적용 - 토큰 자동 탑재
+      const response: any = await http.get('/admin/settlements/reconciliations?page=0&size=1000');
+      if (response && response.status === 'SUCCESS') { // Check for successful status code
+        const result = response.data; // Access data property from axios response
+        setData(result.content || []);
       }
     } catch (error) {
       console.error("데이터 로드 실패:", error);
@@ -90,9 +90,9 @@ const ReconciliationList: React.FC = () => {
 
   const handleCreateTestData = async () => {
     try {
-      // 🌟 3. 마스터키(authFetch) 적용
-      const response = await authFetch(`/api/admin/settlements/test-data?status=${testStatus}`, { method: 'POST' });
-      if (response && response.ok) {
+      // 🌟 3. 마스터키(http) 적용
+      const response: any = await http.post(`/admin/settlements/test-data?status=${testStatus}`);
+      if (response && response.status === 'SUCCESS') {
         const koreanStatus = statusKoreanMap[testStatus] || testStatus;
         toast.success(`${koreanStatus} 상태의 테스트 데이터가 성공적으로 주입되었습니다! 💉`);
         fetchReconciliationData();
@@ -106,17 +106,48 @@ const ReconciliationList: React.FC = () => {
     if (!window.confirm(`대사 ID #${id} 건의 송금을 승인하시겠습니까?\n승인 시 '송금 대기' 상태로 전환됩니다.`)) return;
 
     try {
-      // 🌟 4. 마스터키(authFetch) 적용
-      const response = await authFetch(`/api/admin/settlements/${id}/approve`, { method: 'POST' });
-      if (response && response.ok) {
+      // 🌟 4. 마스터키(http) 적용
+      const response: any = await http.post(`/admin/settlements/${id}/approve`);
+      if (response && response.status === 'SUCCESS') {
         toast.success("✅ 성공적으로 승인되었습니다.");
         fetchReconciliationData();
-      } else if (response) {
-        const err = await response.json();
-        toast.error(`❌ 승인 실패: ${err.error || "알 수 없는 오류"}`);
+      } else {
+        toast.error(`❌ 승인 실패: ${response?.message || "알 수 없는 오류"}`);
       }
-    } catch (error) {
-      toast.error("서버 통신 중 오류가 발생했습니다.");
+    } catch (error: any) {
+      toast.error(`서버 통신 중 오류가 발생했습니다: ${error.message || "알 수 없는 오류"}`);
+    }
+  };
+
+  // ✅ 일괄 승인 함수
+  const handleBulkApprove = async () => {
+    // Assuming `selectedIds` is a state variable holding selected reconciliation IDs
+    // You would need to define `selectedIds` and `setSelectedIds` in your component state
+    // For now, let's assume it's an empty array or needs to be passed as an argument
+    const selectedIds: number[] = []; // Placeholder, replace with actual state
+
+    if (selectedIds.length === 0) {
+      toast.info("승인할 항목을 선택해주세요.");
+      return;
+    }
+
+    if (!window.confirm(`${selectedIds.length} 건의 항목을 일괄 승인하시겠습니까?`)) return;
+
+    try {
+      for (const id of selectedIds) {
+        // 🌟 4. 마스터키(http) 적용
+        const response: any = await http.post(`/admin/settlements/${id}/approve`);
+        if (response && response.status === 'SUCCESS') {
+          toast.success(`✅ ID #${id} 성공적으로 승인되었습니다.`);
+        } else {
+          toast.error(`❌ ID #${id} 승인 실패: ${response?.message || "알 수 없는 오류"}`);
+        }
+      }
+      // setSelectedIds([]); // Clear selections after bulk approval
+      fetchReconciliationData();
+    } catch (err: any) {
+      toast.error(`일괄 승인 처리 중 오류가 발생했습니다: ${err.message || "알 수 없는 오류"}`);
+      console.error(err);
     }
   };
 

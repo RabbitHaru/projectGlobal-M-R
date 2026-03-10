@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import CommonLayout from "../../components/layout/CommonLayout";
 // 🌟 마스터키 불러오기
-import { authFetch } from '../../utils/api';
+import http from '../../config/http';
 import { toast } from 'sonner';
 
 export default function ReconciliationDetail() {
@@ -21,27 +21,19 @@ export default function ReconciliationDetail() {
     if (!window.confirm('입력한 금액으로 유저에게 오차 수정 동의를 요청하시겠습니까?')) return;
 
     try {
-      // 🌟 수정: authFetch 적용 및 localhost 주소 제거
-      const response = await authFetch(`/api/admin/settlements/${id}/resolve`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          correctedAmount: correctedAmount,
-          reason: reason,
-        }),
+      // 🌟 수정: http 적용
+      const response: any = await http.patch(`/admin/settlements/${id}/resolve`, {
+        correctedAmount,
+        reason,
       });
 
-      if (!response) throw new Error("서버 응답이 없습니다.");
-
-      const result = await response.json();
-
-      if (response && response.ok && result.status === 'SUCCESS') {
+      if (response && response.status === 'SUCCESS') {
         toast.info('✅ 유저에게 오차 수정 동의 요청이 발송되었습니다. (유저 동의 대기 상태)');
         setCorrectedAmount('');
         setReason('');
         navigate('/pages/admin/settlement');
       } else {
-        toast.error(`❌ 요청 실패: ${result.message}`);
+        toast.error(`❌ 요청 실패: ${response?.message || '알 수 없는 오류'}`);
       }
     } catch (error) {
       console.error('API 에러:', error);
@@ -53,20 +45,13 @@ export default function ReconciliationDetail() {
     if (!window.confirm('이 정산 건을 승인하시겠습니까?\n유저의 최종 동의 완료 후 송금 대기 상태로 넘어갑니다.')) return;
 
     try {
-      // 🌟 수정: authFetch 적용 및 localhost 주소 제거
-      const response = await authFetch(`/api/admin/settlements/${id}/approve`, {
-        method: 'POST',
-      });
-
-      if (!response) throw new Error("서버 응답이 없습니다.");
-
-      const result = await response.json();
-
-      if (response && response.ok && result.status === 'SUCCESS') {
+      // 🌟 수정: http 적용
+      const response: any = await http.post(`/admin/settlements/${id}/approve`);
+      if (response && response.status === 'SUCCESS') {
         toast.info('✅ 유저에게 최종 승인 동의를 요청했습니다!');
         navigate('/pages/admin/settlement');
       } else {
-        toast.error(`❌ 승인 요청 실패: ${result.message}`);
+        toast.error(`❌ 승인 요청 실패: ${response?.message || '알 수 없는 오류'}`);
       }
     } catch (error) {
       console.error('API 에러:', error);

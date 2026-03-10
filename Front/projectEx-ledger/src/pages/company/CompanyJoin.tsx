@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommonLayout from "../../components/layout/CommonLayout";
-import { authFetch } from '../../utils/api';
+import http from '../../config/http';
 import { toast } from 'sonner';
 
 const CompanyJoin: React.FC = () => {
@@ -18,24 +18,17 @@ const CompanyJoin: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const res = await authFetch('/api/company/join', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ businessNumber })
-            });
+            const res: any = await http.post('/company/join', { businessNumber });
 
-            if (!res) throw new Error("서버 응답이 없습니다.");
-
-            const data = await res.json();
-            if (res.ok && data.status === 'SUCCESS') {
+            if (res && res.status === 'SUCCESS') {
                 toast.success("성공적으로 소속 기업의 관리자에게 가입 승인을 요청했습니다.");
                 navigate('/dashboard');
             } else {
-                toast.error(`승인 요청 실패: ${data.message || '알 수 없는 오류'}`);
+                toast.error(`승인 요청 실패: ${res?.message || '알 수 없는 오류'}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error("요청 중 오류가 발생했습니다.");
+            toast.error(`요청 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
         } finally {
             setIsSubmitting(false);
         }
