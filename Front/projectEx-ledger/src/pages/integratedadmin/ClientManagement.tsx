@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import CommonLayout from "../../components/layout/CommonLayout";
 import { toast } from 'sonner';
 
@@ -102,6 +102,7 @@ export default function ClientManagement() {
   };
 
   const handleClientSelect = (client: Client) => {
+    console.log("선택된 가맹점:", client);
     setSelectedClient(client);
     applyGradeDefaults(client.grade);
   };
@@ -146,15 +147,31 @@ export default function ClientManagement() {
       });
 
       const result = await response.json();
-
-      if (response.ok && result.status === 'SUCCESS') {
-        toast.success('✅ 가맹점 등급 및 수수료 정책이 성공적으로 반영되었습니다!');
+      if (response.ok && result.status === "SUCCESS") {
+        setClients((prevClients) => {
+          const updated = prevClients.map((client) =>
+            client.merchantId === selectedClient.merchantId
+              ? {
+                  ...client,
+                  grade: selectedClient.grade,
+                  feeRate: policyData.platformFeeRate,
+                  networkFee: policyData.networkFee,
+                  exchangeSpread: policyData.exchangeSpread,
+                  preferenceRate: policyData.preferenceRate,
+                }
+              : client,
+          );
+          return updated;
+        });
+        alert("✅ 가맹점 등급 및 수수료 정책이 성공적으로 반영되었습니다!");
       } else {
-        toast.error(`❌ 업데이트 실패: ${result.message}`);
+        alert(`❌ 업데이트 실패: ${result.message}`);
       }
     } catch (error) {
-      console.error('API 통신 에러:', error);
-      toast.error('서버와 통신 중 문제가 발생했습니다. 백엔드가 켜져있는지 확인해주세요!');
+      console.error("API 통신 에러:", error);
+      alert(
+        "서버와 통신 중 문제가 발생했습니다. 백엔드가 켜져있는지 확인해주세요!",
+      );
     }
   };
 

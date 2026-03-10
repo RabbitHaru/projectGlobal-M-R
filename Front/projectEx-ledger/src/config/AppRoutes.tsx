@@ -17,10 +17,14 @@ import SystemHealth from "../components/pages/admin/system/SystemHealth";
 import AdminDashboard from "../pages/integratedadmin/AdminDashboard";
 import ReconciliationList from "../pages/integratedadmin/ReconciliationList";
 import SellerDashboard from "../components/pages/remittance/SellerDashboard";
-import ReconciliationDetail from '../pages/integratedadmin/ReconciliationDetail';
+import ReconciliationDetail from "../pages/integratedadmin/ReconciliationDetail";
 import ClientManagement from "../pages/integratedadmin/ClientManagement";
 import MySettlementList from "../components/pages/settlement/MySettlementList";
 import RemittanceManagement from "../pages/integratedadmin/RemittanceManagement";
+import TransactionHistory from "../components/dashboard/TransactionHistory";
+import RemittanceTracking from "../components/pages/remittance/Tracking/RemittanceTracking";
+import ExchangePage from "../components/widgets/finance/ExchangePage";
+import SettlementDashboard from "../components/pages/settlement/SettlementDashboard";
 
 // Company
 import CompanyJoin from "../pages/company/CompanyJoin";
@@ -32,7 +36,22 @@ const AppRoutes = () => {
     <Routes>
       {/* 누구나 접근 가능한 기본 렌딩 페이지 */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/finance" element={<LandingPage />} />
+      <Route path="/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/list" element={<ReconciliationList />} />
+      <Route path="/admin/settlement/:id" element={<ReconciliationDetail />} />
+      <Route path="/pages/admin/settlement" element={<ReconciliationList />} />
+      <Route path="/seller/dashboard" element={<SellerDashboard />} />
+      <Route path="/settlement" element={<SettlementDashboard />} />
+      <Route path="/client" element={<ClientManagement />} />
+      <Route path="/list" element={<MySettlementList />} />
+      <Route path="/pages/remittance" element={<RemittanceManagement />} />
+      <Route path="/dashboard" element={<TransactionHistory />} />
+      <Route
+        path="/pages/remittance/Tracking"
+        element={<RemittanceTracking />}
+      />
+      <Route path="/widget/finance" element={<ExchangePage />} />
+
       {/* 인증 불필요 라우트 */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
