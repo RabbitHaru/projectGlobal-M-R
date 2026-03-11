@@ -16,7 +16,7 @@ import AdminLogList from "../components/pages/admin/system/AdminLogList";
 import SystemHealth from "../components/pages/admin/system/SystemHealth";
 import AdminDashboard from "../pages/integratedadmin/AdminDashboard";
 import ReconciliationList from "../pages/integratedadmin/ReconciliationList";
-import SellerDashboard from "../components/pages/remittance/SellerDashboard";
+import ExchangeDashboard from "../components/pages/remittance/ExchangeDashboard";
 import ReconciliationDetail from "../pages/integratedadmin/ReconciliationDetail";
 import ClientManagement from "../pages/integratedadmin/ClientManagement";
 import MySettlementList from "../components/pages/settlement/MySettlementList";
@@ -30,6 +30,7 @@ import SettlementDashboard from "../components/pages/settlement/SettlementDashbo
 import CompanyJoin from "../pages/company/CompanyJoin";
 import PendingUsers from "../pages/company/PendingUsers";
 import CompanyReview from "../pages/integratedadmin/CompanyReview";
+import SellerDashboard from "../components/widgets/finance/SellerDashboard";
 
 const AppRoutes = () => {
   return (
@@ -39,7 +40,10 @@ const AppRoutes = () => {
         <Route path="/" element={<LandingPage />} />
         <Route path="/exchange" element={<ExchangePage />} />
         <Route path="/finance" element={<LandingPage />} />
-        <Route path="/pages/remittance/Tracking" element={<RemittanceTracking />} />
+        <Route
+          path="/pages/remittance/Tracking"
+          element={<RemittanceTracking />}
+        />
 
         {/* 2. 인증 불필요 라우트 (로그인/회원가입 등) */}
         <Route element={<AuthLayout />}>
@@ -51,7 +55,21 @@ const AppRoutes = () => {
         {/* 3. 보안/인증 필요 라우트 영역 */}
         <Route element={<ProtectedRoute />}>
           {/* ----- 일반 로그인 사용자 공통 (User, Company User, Company Admin) ----- */}
-          <Route element={<ProtectedRoute allowedRoles={["ROLE_USER", "USER", "ROLE_COMPANY_USER", "COMPANY_USER", "ROLE_COMPANY_ADMIN", "COMPANY_ADMIN"]} />}>
+          <Route
+            element={
+              <ProtectedRoute
+                allowedRoles={[
+                  "ROLE_USER",
+                  "USER",
+                  "ROLE_COMPANY_USER",
+                  "COMPANY_USER",
+                  "ROLE_COMPANY_ADMIN",
+                  "COMPANY_ADMIN",
+                ]}
+              />
+            }
+          >
+            <Route path="/exchange/dashboard" element={<ExchangeDashboard />} />
             <Route path="/seller/dashboard" element={<SellerDashboard />} />
             <Route path="/company/join" element={<CompanyJoin />} />
             <Route path="/list" element={<MySettlementList />} />
@@ -60,15 +78,30 @@ const AppRoutes = () => {
           </Route>
 
           {/* ----- 기업 관리자(Company Admin) 전용 라우트 ----- */}
-          <Route element={<ProtectedRoute allowedRoles={["ROLE_COMPANY_ADMIN", "COMPANY_ADMIN"]} />}>
+          <Route
+            element={
+              <ProtectedRoute
+                allowedRoles={["ROLE_COMPANY_ADMIN", "COMPANY_ADMIN"]}
+              />
+            }
+          >
             <Route path="/admin/company/pending" element={<PendingUsers />} />
           </Route>
 
           {/* ----- 최고 관리자(Integrated Admin) 전용 라우트 ----- */}
-          <Route element={<ProtectedRoute allowedRoles={["ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]} />}>
+          <Route
+            element={
+              <ProtectedRoute
+                allowedRoles={["ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]}
+              />
+            }
+          >
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/list" element={<ReconciliationList />} />
-            <Route path="/admin/settlement/:id" element={<ReconciliationDetail />} />
+            <Route
+              path="/admin/settlement/:id"
+              element={<ReconciliationDetail />}
+            />
             <Route path="/client" element={<ClientManagement />} />
             <Route path="/admin/logs" element={<AdminLogList />} />
             <Route path="/admin/health" element={<SystemHealth />} />
