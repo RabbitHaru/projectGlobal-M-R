@@ -21,14 +21,15 @@ export interface Transaction {
 }
 
 interface WalletContextType {
-  hasAccount: boolean;
-  setHasAccount: (status: boolean) => void;
-  userAccount: string;
-  setUserAccount: (acc: string) => void;
-  balances: Record<string, number>;
-  setBalances: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  hasPersonalAccount: boolean;
+  personalAccount: string;
+  personalBalances: Record<string, number>;
+  hasCorporateAccount: boolean;
+  corporateAccount: string;
+  corporateBalances: Record<string, number>;
   transactions: Transaction[];
-  addTransaction: (tx: Transaction) => void;
+  setPersonalAccount: (acc: string) => void;
+  setCorporateAccount: (acc: string) => void;
   executeTransfer: (
     toAcc: string,
     amt: number,
@@ -39,8 +40,9 @@ interface WalletContextType {
     title: string,
     category: "PERSONAL" | "BUSINESS",
   ) => void;
-  chargeKrw: (amount: number) => void;
+  chargeKrw: (amount: number, category: "PERSONAL" | "BUSINESS") => void;
   resetAccount: () => void;
+  addTransaction: (tx: Transaction) => void;
 }
 
 export const SUPPORTED_CURRENCIES = [
@@ -73,14 +75,16 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [userId, setUserId] = useState<string>("guest");
-  const [hasAccount, setHasAccount] = useState(false);
-  const [userAccount, setUserAccount] = useState("");
-  const initialBalances = SUPPORTED_CURRENCIES.reduce(
-    (acc, cur) => ({ ...acc, [cur]: 0 }),
-    {} as Record<string, number>,
-  );
-  const [balances, setBalances] =
-    useState<Record<string, number>>(initialBalances);
+  const [hasPersonalAccount, setHasPersonalAccount] = useState(false);
+  const [personalAccount, setPersonalAccount] = useState("");
+  const [personalBalances, setPersonalBalances] = useState<
+    Record<string, number>
+  >({});
+  const [hasCorporateAccount, setHasCorporateAccount] = useState(false);
+  const [corporateAccount, setCorporateAccount] = useState("");
+  const [corporateBalances, setCorporateBalances] = useState<
+    Record<string, number>
+  >({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const sanitizeNumber = (val: any): number => {
@@ -91,19 +95,27 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     return isNaN(num) || num < 0 ? 0 : num;
   };
 
+  const getInitialBalances = () =>
+    SUPPORTED_CURRENCIES.reduce(
+      (acc, cur) => ({ ...acc, [cur]: 0 }),
+      {} as Record<string, number>,
+    );
+
   const loadUserData = (id: string) => {
-    if (!id || id === "guest") return;
     const savedData = localStorage.getItem(`wallet_data_${id}`);
     if (savedData) {
       const parsed = JSON.parse(savedData);
-      setHasAccount(parsed.hasAccount || false);
-      setUserAccount(parsed.userAccount || "");
-      const sanitizedBalances: Record<string, number> = {};
-      SUPPORTED_CURRENCIES.forEach((cur) => {
-        sanitizedBalances[cur] = sanitizeNumber(parsed.balances?.[cur] || 0);
-      });
-      setBalances(sanitizedBalances);
+      setHasPersonalAccount(parsed.hasPersonalAccount || false);
+      setPersonalAccount(parsed.personalAccount || "");
+      setPersonalBalances(parsed.personalBalances || getInitialBalances());
+      setHasCorporateAccount(parsed.hasCorporateAccount || false);
+      setCorporateAccount(parsed.corporateAccount || "");
+      setCorporateBalances(parsed.corporateBalances || getInitialBalances());
       setTransactions(parsed.transactions || []);
+    } else {
+      setPersonalBalances(getInitialBalances());
+      setCorporateBalances(getInitialBalances());
+      setTransactions([]);
     }
   };
 
@@ -111,15 +123,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const syncAuth = () => {
       const token = getAuthToken();
       if (token) {
-        try {
-          const decoded = parseJwt(token);
-          const currentId = decoded?.sub || decoded?.email || "guest";
-          if (userId !== currentId) {
-            setUserId(currentId);
-            loadUserData(currentId);
-          }
-        } catch (e) {
-          console.error("Auth sync error");
+        const decoded = parseJwt(token);
+        const currentId = decoded?.sub || decoded?.email || "guest";
+        if (userId !== currentId) {
+          setUserId(currentId);
+          loadUserData(currentId);
         }
       }
     };
@@ -129,28 +137,52 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [userId]);
 
   useEffect(() => {
-    if (userId !== "guest" && userAccount !== "") {
+    if (userId !== "guest") {
       localStorage.setItem(
         `wallet_data_${userId}`,
-        JSON.stringify({ hasAccount, userAccount, balances, transactions }),
+        JSON.stringify({
+          hasPersonalAccount,
+          personalAccount,
+          personalBalances,
+          hasCorporateAccount,
+          corporateAccount,
+          corporateBalances,
+          transactions,
+        }),
       );
     }
-  }, [hasAccount, userAccount, balances, transactions, userId]);
+  }, [
+    hasPersonalAccount,
+    personalAccount,
+    personalBalances,
+    hasCorporateAccount,
+    corporateAccount,
+    corporateBalances,
+    transactions,
+    userId,
+  ]);
 
-  const chargeKrw = (amount: number) => {
+  const chargeKrw = (amount: number, category: "PERSONAL" | "BUSINESS") => {
     const cleanAmount = sanitizeNumber(amount);
     if (cleanAmount <= 0) return;
-    setBalances((prev) => ({
-      ...prev,
-      KRW: sanitizeNumber(prev.KRW) + cleanAmount,
-    }));
+    if (category === "PERSONAL") {
+      setPersonalBalances((prev) => ({
+        ...prev,
+        KRW: (prev.KRW || 0) + cleanAmount,
+      }));
+    } else {
+      setCorporateBalances((prev) => ({
+        ...prev,
+        KRW: (prev.KRW || 0) + cleanAmount,
+      }));
+    }
     setTransactions((prev) => [
       {
         id: `CHG-${Date.now()}`,
         date: new Date().toISOString().split("T")[0],
         type: "CHARGE",
-        category: "PERSONAL",
-        title: "포트원 결제 충전",
+        category,
+        title: `${category === "PERSONAL" ? "개인" : "기업"} 지갑 충전`,
         amount: cleanAmount,
         currency: "KRW",
         rate: 1,
@@ -161,7 +193,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     ]);
   };
 
-  // 🌟 송금 로직: 상대방 계좌 존재 여부 체크 포함
   const executeTransfer = (
     toAccount: string,
     amount: number,
@@ -172,99 +203,107 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     title: string,
     category: "PERSONAL" | "BUSINESS",
   ) => {
-    if (toAccount === userAccount) {
+    const myBalances =
+      category === "PERSONAL" ? personalBalances : corporateBalances;
+    const myAccount =
+      category === "PERSONAL" ? personalAccount : corporateAccount;
+    if (toAccount === myAccount)
       throw new Error("본인 계좌로는 송금할 수 없습니다.");
-    }
-
-    const cleanDebit = sanitizeNumber(debitAmount);
-    const cleanCredit = sanitizeNumber(creditAmount);
-
-    if (balances.KRW < cleanDebit) {
+    if ((myBalances.KRW || 0) < debitAmount)
       throw new Error("잔액이 부족합니다.");
-    }
 
-    // 🔍 [DB 시뮬레이션] 모든 유저 데이터를 검색하여 수취인 계좌 확인
     let targetUserKey = null;
+    let targetCategory: "PERSONAL" | "BUSINESS" = "PERSONAL";
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key?.startsWith("wallet_data_")) {
-        const rawData = localStorage.getItem(key);
-        if (rawData) {
-          const otherData = JSON.parse(rawData);
-          if (otherData.userAccount === toAccount) {
-            targetUserKey = key;
-            break;
-          }
+        const other = JSON.parse(localStorage.getItem(key)!);
+        if (other.personalAccount === toAccount) {
+          targetUserKey = key;
+          targetCategory = "PERSONAL";
+          break;
+        }
+        if (other.corporateAccount === toAccount) {
+          targetUserKey = key;
+          targetCategory = "BUSINESS";
+          break;
         }
       }
     }
+    if (!targetUserKey) throw new Error("존재하지 않는 계좌번호입니다.");
 
-    // ❌ 상대방 계좌가 DB(localStorage)에 없으면 에러 발생
-    if (!targetUserKey) {
-      throw new Error("존재하지 않는 계좌번호입니다. 다시 확인해 주세요.");
-    }
+    if (category === "PERSONAL")
+      setPersonalBalances((prev) => ({
+        ...prev,
+        KRW: (prev.KRW || 0) - debitAmount,
+      }));
+    else
+      setCorporateBalances((prev) => ({
+        ...prev,
+        KRW: (prev.KRW || 0) - debitAmount,
+      }));
 
-    // ✅ 내 잔액 차감 및 내역 저장
-    setBalances((prev) => ({
-      ...prev,
-      KRW: sanitizeNumber(prev.KRW) - cleanDebit,
-    }));
+    const targetData = JSON.parse(localStorage.getItem(targetUserKey)!);
+    const balKey =
+      targetCategory === "PERSONAL" ? "personalBalances" : "corporateBalances";
+    targetData[balKey].KRW = (targetData[balKey].KRW || 0) + creditAmount;
+    targetData.transactions = [
+      {
+        id: `IN-${Date.now()}`,
+        date: new Date().toISOString().split("T")[0],
+        type: "INCOMING",
+        category: targetCategory,
+        title: `입금 확인 (${myAccount})`,
+        amount,
+        currency,
+        rate,
+        finalKrw: creditAmount,
+        status: "COMPLETED",
+      },
+      ...(targetData.transactions || []),
+    ];
+    localStorage.setItem(targetUserKey, JSON.stringify(targetData));
+
     setTransactions((prev) => [
       {
         id: `TX-${Date.now()}`,
         date: new Date().toISOString().split("T")[0],
         type: "TRANSFER",
         category,
-        title: `${title}`,
+        title,
         amount: -amount,
         currency,
         rate,
-        finalKrw: cleanDebit,
+        finalKrw: debitAmount,
         status: "COMPLETED",
       },
       ...prev,
     ]);
-
-    // ✅ 상대방 잔액 증액 및 입금 내역 저장
-    const rawTargetData = localStorage.getItem(targetUserKey);
-    if (rawTargetData) {
-      const targetData = JSON.parse(rawTargetData);
-      targetData.balances.KRW =
-        sanitizeNumber(targetData.balances.KRW) + cleanCredit;
-      const inTx = {
-        id: `IN-${Date.now()}`,
-        date: new Date().toISOString().split("T")[0],
-        type: "INCOMING",
-        category,
-        title: `입금 확인 (${userAccount})`,
-        amount: amount,
-        currency,
-        rate,
-        finalKrw: cleanCredit,
-        status: "COMPLETED",
-      };
-      targetData.transactions = [inTx, ...(targetData.transactions || [])];
-      localStorage.setItem(targetUserKey, JSON.stringify(targetData));
-    }
   };
 
   const resetAccount = () => {
-    if (userId !== "guest") {
-      localStorage.removeItem(`wallet_data_${userId}`);
-      window.location.reload();
-    }
+    localStorage.removeItem(`wallet_data_${userId}`);
+    window.location.reload();
   };
 
   return (
     <WalletContext.Provider
       value={{
-        hasAccount,
-        setHasAccount,
-        userAccount,
-        setUserAccount,
-        balances,
-        setBalances,
+        hasPersonalAccount,
+        personalAccount,
+        personalBalances,
+        hasCorporateAccount,
+        corporateAccount,
+        corporateBalances,
         transactions,
+        setPersonalAccount: (acc) => {
+          setPersonalAccount(acc);
+          setHasPersonalAccount(true);
+        },
+        setCorporateAccount: (acc) => {
+          setCorporateAccount(acc);
+          setHasCorporateAccount(true);
+        },
         executeTransfer,
         chargeKrw,
         resetAccount,

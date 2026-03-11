@@ -9,6 +9,11 @@ import {
   Filter,
   ArrowUpRight,
   ArrowDownLeft,
+  X,
+  Loader2,
+  Sparkles,
+  ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 import { useToast } from "../../../components/notification/ToastProvider";
 
@@ -47,16 +52,68 @@ const CURRENCY_NAMES: Record<string, string> = {
 
 const WalletOverview: React.FC = () => {
   const { showToast } = useToast();
-  const { balances, transactions, chargeKrw, userAccount, hasAccount } =
-    useWallet();
+  const {
+    personalBalances,
+    transactions,
+    chargeKrw,
+    personalAccount,
+    setPersonalAccount,
+  } = useWallet();
+
   const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
   const [chargeAmount, setChargeAmount] = useState("");
-
-  const activePockets = (Object.entries(balances) as [string, number][]).filter(
-    ([cur, bal]) => bal > 0 && cur !== "KRW",
+  const [isActivating, setIsActivating] = useState(false);
+  const [realName, setRealName] = useState<string>(
+    localStorage.getItem("user_real_name") || "",
   );
 
-  // 🌟 [포트원 V2 연동] 결제 실행 함수
+  const activePockets = (
+    Object.entries(personalBalances) as [string, number][]
+  ).filter(([cur, bal]) => bal > 0 && cur !== "KRW");
+
+  /**
+   * 🌟 본인인증 실행 함수 (이전 단계에서 해결됨)
+   */
+  const handleVerifyAndActivate = async () => {
+    if (!window.PortOne) {
+      showToast("인증 모듈을 불러올 수 없습니다.", "ERROR");
+      return;
+    }
+
+    setIsActivating(true);
+
+    try {
+      const response = await window.PortOne.requestIdentityVerification({
+        storeId: import.meta.env.VITE_PORTONE_STORE_ID,
+        channelKey: import.meta.env.VITE_PORTONE_AUTH_CHANNEL_KEY,
+        identityVerificationId: `auth-${Date.now()}`,
+      });
+
+      if (response.code != null) {
+        showToast(response.message || "본인인증에 실패하였습니다.", "ERROR");
+        setIsActivating(false);
+        return;
+      }
+
+      const verifiedName = "홍길동"; // 실제 환경에서는 인증 결과에서 추출
+      const newAccount = `EX-1002-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      setPersonalAccount(newAccount);
+      setRealName(verifiedName);
+      localStorage.setItem("user_real_name", verifiedName);
+
+      setIsActivating(false);
+      showToast(`${verifiedName}님, 계좌 발급이 완료되었습니다.`, "SUCCESS");
+    } catch (error) {
+      showToast("인증 과정 중 오류가 발생했습니다.", "ERROR");
+      setIsActivating(false);
+    }
+  };
+
+  /**
+   * 🌟 [에러 수정] 원화 충전 결제 함수
+   * 400 에러 해결: 통화 단위를 "CURRENCY_KRW"에서 "KRW"로 변경하고 결제 채널 키를 확인합니다.
+   */
   const handlePortOnePayment = async () => {
     const amount = Number(chargeAmount);
     if (amount <= 0) {
@@ -69,60 +126,89 @@ const WalletOverview: React.FC = () => {
       return;
     }
 
-    // .env에서 상점 ID와 채널 키 가져오기
-    const storeId = import.meta.env.VITE_PORTONE_STORE_ID;
-    const channelKey = import.meta.env.VITE_PORTONE_CHANNEL_KEY;
-
     try {
       const response = await window.PortOne.requestPayment({
-        storeId: storeId,
-        channelKey: channelKey,
+        storeId: import.meta.env.VITE_PORTONE_STORE_ID,
+        // 🌟 중요: 인증용(AUTH)이 아닌 '결제용' 채널 키를 사용해야 합니다.
+        channelKey: import.meta.env.VITE_PORTONE_CHANNEL_KEY,
         paymentId: `payment-${Date.now()}`,
         orderName: "Ex-Ledger 지갑 충전",
         totalAmount: amount,
-        currency: "CURRENCY_KRW",
+        // 🌟 수정: V2 표준 규격에 맞춰 "KRW"로 변경
+        currency: "KRW",
         payMethod: "CARD",
         customer: {
-          fullName: "홍길동",
+          fullName: realName || "미인증 사용자",
           phoneNumber: "010-0000-0000",
         },
-        // 모바일 환경 리다이렉트 설정 (필요 시)
-        redirectUrl: window.location.origin + "/wallet/overview",
       });
 
-      // 🌟 결제 결과 처리 (V2는 응답 객체를 바로 확인 가능)
       if (response.code != null) {
-        // 오류 발생
-        showToast(response.message || "결제에 실패했습니다.", "ERROR");
+        showToast(response.message || "결제 실패", "ERROR");
         return;
       }
 
-      // 결제 성공 시 (실제 서비스는 백엔드 승인 확인 후 chargeKrw 호출 권장)
-      chargeKrw(amount);
+      chargeKrw(amount, "PERSONAL");
       showToast(`${amount.toLocaleString()}원 충전 완료!`, "SUCCESS");
       setIsChargeModalOpen(false);
       setChargeAmount("");
     } catch (error) {
-      console.error("PortOne Error:", error);
-      showToast("결제 과정 중 오류가 발생했습니다.", "ERROR");
+      showToast("결제 오류가 발생했습니다.", "ERROR");
     }
   };
+
+  const personalTxs = transactions.filter((tx) => tx.category === "PERSONAL");
+
+  if (!personalAccount) {
+    return (
+      <CommonLayout>
+        <div className="max-w-4xl px-6 py-32 mx-auto space-y-12 text-center animate-in fade-in">
+          <div className="space-y-6">
+            <div className="bg-teal-50 w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto text-teal-600 shadow-xl shadow-teal-100/50">
+              <ShieldCheck size={48} />
+            </div>
+            <h1 className="text-4xl italic font-black tracking-tighter uppercase text-slate-900">
+              Identity Verification
+            </h1>
+            <p className="max-w-md mx-auto font-bold leading-relaxed text-slate-500">
+              안전한 금융 거래를 위해 <strong>KG이니시스 본인인증</strong>이
+              필요합니다. <br />
+              인증 완료 후 개인 계좌가 발급됩니다.
+            </p>
+          </div>
+          <button
+            onClick={handleVerifyAndActivate}
+            disabled={isActivating}
+            className="px-12 py-6 bg-slate-900 text-white rounded-[24px] font-black uppercase tracking-widest shadow-2xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+          >
+            {isActivating ? (
+              <Loader2 className="mx-auto animate-spin" size={24} />
+            ) : (
+              "본인인증 후 지갑 활성화"
+            )}
+          </button>
+        </div>
+      </CommonLayout>
+    );
+  }
 
   return (
     <CommonLayout>
       <div className="p-10 mx-auto space-y-12 font-sans max-w-7xl animate-in fade-in">
-        {/* 상단 섹션 생략 (이전과 동일) */}
         <header className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 bg-slate-900 rounded-[48px] p-12 text-white shadow-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 -mt-20 -mr-20 rounded-full bg-teal-500/10 blur-3xl" />
+            <div className="absolute top-0 right-0 w-64 h-64 -mt-20 -mr-20 rounded-full pointer-events-none bg-teal-500/10 blur-3xl" />
             <div className="relative z-10 flex flex-col justify-between h-full gap-10">
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-teal-400 uppercase tracking-[0.3em]">
-                    총 추정 자산 가치
-                  </p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <UserCheck size={14} className="text-teal-400" />
+                    <p className="text-[10px] font-black text-teal-400 uppercase tracking-[0.3em]">
+                      {realName}님의 자산 가치
+                    </p>
+                  </div>
                   <h2 className="text-5xl italic font-black tracking-tighter">
-                    ₩ {balances.KRW.toLocaleString()}{" "}
+                    ₩ {personalBalances.KRW?.toLocaleString() || 0}{" "}
                     <span className="text-lg not-italic opacity-30">KRW</span>
                   </h2>
                 </div>
@@ -133,10 +219,10 @@ const WalletOverview: React.FC = () => {
               <div className="flex items-center gap-6 pt-6 border-t border-white/5">
                 <div>
                   <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">
-                    연결된 계좌 번호
+                    나의 개인 계좌
                   </p>
                   <p className="font-mono text-sm font-bold text-slate-300">
-                    {userAccount}
+                    {personalAccount}
                   </p>
                 </div>
                 <button
@@ -173,14 +259,13 @@ const WalletOverview: React.FC = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full space-y-2 italic font-black text-center opacity-30">
                   <CreditCard size={32} />
-                  <p className="text-[10px]">보유 중인 외화가 없습니다.</p>
+                  <p className="text-[10px]">보유 외화 없음</p>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        {/* 거래 내역 섹션 생략 (이전과 동일) */}
         <section className="space-y-6">
           <div className="flex items-center justify-between px-2">
             <h3 className="font-sans text-2xl italic font-black tracking-tighter uppercase text-slate-900">
@@ -189,8 +274,8 @@ const WalletOverview: React.FC = () => {
           </div>
           <div className="bg-white border border-slate-100 rounded-[56px] p-12 shadow-sm">
             <div className="space-y-4">
-              {transactions.length > 0 ? (
-                transactions.map((tx: Transaction) => (
+              {personalTxs.length > 0 ? (
+                personalTxs.map((tx: Transaction) => (
                   <div
                     key={tx.id}
                     className="flex items-center justify-between p-6 rounded-[32px] hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
@@ -206,18 +291,9 @@ const WalletOverview: React.FC = () => {
                         )}
                       </div>
                       <div>
-                        <div className="flex items-center gap-3">
-                          <p className="text-lg italic font-black text-slate-800">
-                            {tx.title}
-                          </p>
-                          <span
-                            className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${tx.category === "BUSINESS" ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-400"}`}
-                          >
-                            {tx.category === "BUSINESS"
-                              ? "기업 거래"
-                              : "개인 거래"}
-                          </span>
-                        </div>
+                        <p className="text-lg italic font-black text-slate-800">
+                          {tx.title}
+                        </p>
                         <p className="mt-1 text-xs font-bold tracking-widest uppercase text-slate-300">
                           {tx.date} • {tx.type}
                         </p>
@@ -228,7 +304,7 @@ const WalletOverview: React.FC = () => {
                         className={`text-xl font-black font-sans italic ${tx.amount > 0 ? "text-teal-600" : "text-slate-900"}`}
                       >
                         {tx.amount > 0 ? "+" : ""}
-                        {Math.abs(tx.amount).toLocaleString()}{" "}
+                        {tx.amount.toLocaleString()}{" "}
                         <span className="text-xs uppercase opacity-40">
                           {tx.currency}
                         </span>
@@ -240,13 +316,8 @@ const WalletOverview: React.FC = () => {
                   </div>
                 ))
               ) : (
-                <div className="py-24 italic font-black text-center">
-                  <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-slate-50 text-slate-200">
-                    <History size={32} />
-                  </div>
-                  <p className="text-xs tracking-widest text-slate-300">
-                    기록된 거래 내역이 없습니다.
-                  </p>
+                <div className="py-24 italic font-black text-center text-slate-200">
+                  기록된 내역이 없습니다.
                 </div>
               )}
             </div>
@@ -257,15 +328,15 @@ const WalletOverview: React.FC = () => {
       {isChargeModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-lg animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-[56px] p-12 space-y-10 shadow-2xl text-center animate-in zoom-in-95">
-            <div className="mx-auto w-20 h-20 bg-teal-50 text-teal-600 rounded-[28px] flex items-center justify-center shadow-lg shadow-teal-100">
+            <div className="mx-auto w-20 h-20 bg-teal-50 text-teal-600 rounded-[28px] flex items-center justify-center shadow-lg">
               <CreditCard size={40} />
             </div>
             <div className="space-y-2">
               <h3 className="text-3xl italic font-black tracking-tighter uppercase text-slate-900">
-                원화 충전
+                개인 지갑 충전
               </h3>
-              <p className="text-xs italic font-bold tracking-widest uppercase text-slate-400">
-                PortOne V2 연동됨
+              <p className="text-[10px] font-bold text-slate-400">
+                결제 시 본인인증 실명({realName})이 자동 반영됩니다.
               </p>
             </div>
             <div className="relative">
@@ -276,23 +347,19 @@ const WalletOverview: React.FC = () => {
                   ["-", "+", "e", "E"].includes(e.key) && e.preventDefault()
                 }
                 value={chargeAmount}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "" || (Number(val) >= 0 && !val.includes("-")))
-                    setChargeAmount(val);
-                }}
+                onChange={(e) => setChargeAmount(e.target.value)}
                 placeholder="0"
                 className="w-full pb-6 text-6xl italic font-black tracking-tighter text-center transition-all border-b-4 outline-none border-slate-50 focus:border-teal-500"
                 autoFocus
               />
-              <span className="absolute right-0 text-xl italic font-black uppercase bottom-8 text-slate-300">
+              <span className="absolute right-0 text-xl italic font-black bottom-8 text-slate-300">
                 KRW
               </span>
             </div>
-            <div className="flex gap-4 pt-4 text-xs italic font-black tracking-widest uppercase">
+            <div className="flex gap-4 pt-4 text-xs font-black uppercase">
               <button
                 onClick={() => setIsChargeModalOpen(false)}
-                className="flex-1 py-6 transition-colors text-slate-400 hover:text-slate-600"
+                className="flex-1 py-6 text-slate-400 hover:text-slate-600"
               >
                 Cancel
               </button>
@@ -300,7 +367,7 @@ const WalletOverview: React.FC = () => {
                 onClick={handlePortOnePayment}
                 className="flex-[2] bg-slate-900 text-white py-6 rounded-[24px] shadow-2xl active:scale-95 transition-all"
               >
-                Charge via PortOne
+                Charge Now
               </button>
             </div>
           </div>
