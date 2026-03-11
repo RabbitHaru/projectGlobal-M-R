@@ -13,7 +13,8 @@ import {
   History,
   ArrowDownLeft,
   Users,
-  CheckCircle
+  CheckCircle,
+  Bell
 } from "lucide-react";
 
 interface SidebarProps {
@@ -25,12 +26,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const [userRole, setUserRole] = useState<string | null>(null);
 
+  const [isApproved, setIsApproved] = useState<boolean>(true);
+
   useEffect(() => {
     const token = getAuthToken();
     if (token) {
       const decoded = parseJwt(token);
-      if (decoded && decoded.auth) {
-        setUserRole(decoded.auth);
+      if (decoded) {
+        if (decoded.auth) setUserRole(decoded.auth);
+        // roles 기반이 아닌 별도 claim인 isApproved 확인 (없으면 기본값 true로 간주하여 영향 최소화)
+        if (decoded.isApproved !== undefined) {
+          setIsApproved(decoded.isApproved);
+        }
       }
     }
   }, []);
@@ -110,48 +117,54 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 Corporate Services
               </p>
             </div>
-            <Link
-              to="/settlement"
-              onClick={onClose}
-              className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/settlement")
-                ? "bg-teal-50 text-teal-600"
-                : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                }`}
-            >
-              <LayoutDashboard size={18} /> 정산 요약 대시보드
-            </Link>
-            <Link
-              to="/admin/list"
-              onClick={onClose}
-              className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/admin/list")
-                ? "bg-teal-50 text-teal-600"
-                : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                }`}
-            >
-              <ListChecks size={18} /> 결제 정산 대사
-            </Link>
-            <Link
-              to="/list"
-              onClick={onClose}
-              className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/list")
-                ? "bg-teal-50 text-teal-600"
-                : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                }`}
-            >
-              <ArrowDownLeft size={18} /> 수익 정산
-            </Link>
-            <Link
-              to="/seller/history"
-              onClick={onClose}
-              className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/seller/history")
-                ? "bg-teal-50 text-teal-600"
-                : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                }`}
-            >
-              <History size={18} /> 정산 상세 내역
-            </Link>
+            
+            {/* 승인된 기업 사용자만 볼 수 있는 메뉴 (금융/정산 관련) */}
+            {isApproved && (
+              <>
+                <Link
+                  to="/settlement"
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/settlement")
+                    ? "bg-teal-50 text-teal-600"
+                    : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                    }`}
+                >
+                  <LayoutDashboard size={18} /> 정산 요약 대시보드
+                </Link>
+                <Link
+                  to="/admin/list"
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/admin/list")
+                    ? "bg-teal-50 text-teal-600"
+                    : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                    }`}
+                >
+                  <ListChecks size={18} /> 결제 정산 대사
+                </Link>
+                <Link
+                  to="/list"
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/list")
+                    ? "bg-teal-50 text-teal-600"
+                    : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                    }`}
+                >
+                  <ArrowDownLeft size={18} /> 수익 정산
+                </Link>
+                <Link
+                  to="/seller/history"
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/seller/history")
+                    ? "bg-teal-50 text-teal-600"
+                    : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                    }`}
+                >
+                  <History size={18} /> 정산 상세 내역
+                </Link>
+              </>
+            )}
 
-            {/* 기업 관리자만의 추가 탭: 유저 관리 */}
+            {/* 기업 관리자만의 추가 탭: 유저 관리 (미심사 상태여도 본인 회사 유저는 관리 가능해야 함) */}
             {hasRole("ROLE_COMPANY_ADMIN") && (
               <Link
                 to="/admin/company/pending"
@@ -161,7 +174,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
                   }`}
               >
-                <Users size={18} /> 기업 유저관리
+                <Users size={18} /> 멤버 및 권한 관리
               </Link>
             )}
           </>
@@ -225,10 +238,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             >
               <SendHorizontal size={18} /> 자금 이체 프로세싱
             </Link>
+            <Link
+              to="/admin/broadcast"
+              onClick={onClose}
+              className={`flex items-center gap-3 px-4 py-3 text-sm font-black transition-all rounded-xl ${isActive("/admin/broadcast")
+                ? "bg-teal-50 text-teal-600"
+                : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                }`}
+            >
+              <Bell size={18} /> 전체 공지 발송
+            </Link>
           </>
         )}
       </nav>
-      );
     </div>
   );
 };

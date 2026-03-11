@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import me.projectexledger.domain.BaseEntity;
+import me.projectexledger.domain.company.entity.Company;
 
 /**
  * 사용자(회원) 엔티티
@@ -38,23 +39,17 @@ public class Member extends BaseEntity {
     @Column(length = 100)
     private String totpSecret;
 
-    @Column(length = 20)
-    private String businessNumber;
+    // 기업 FK (nullable — 개인 회원은 null)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
 
     @Column(nullable = false)
     private boolean isApproved = false;
 
-    // 포트원 본인인증 고유 번호 (결제내역/인증내역 검증용)
+    // 포트원 본인인증 고유 번호
     @Column(length = 100)
     private String portoneImpUid;
-
-    // 비공개 파일 스토리지 식별용 UUID
-    @Column(length = 100)
-    private String licenseFileUuid;
-
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private AdminApprovalStatus adminApprovalStatus;
 
     // 개인 계좌 정보
     @Column(length = 50)
@@ -71,28 +66,22 @@ public class Member extends BaseEntity {
     private boolean allowNotifications = true;
 
     @Builder
-    public Member(String email, String password, String name, Role role, String businessNumber, String portoneImpUid,
-            String licenseFileUuid) {
+    public Member(String email, String password, String name, Role role,
+                  Company company, String portoneImpUid) {
         this.email = email;
         this.password = password;
         this.name = name;
         this.role = role;
-        this.businessNumber = businessNumber;
+        this.company = company;
         this.portoneImpUid = portoneImpUid;
-        this.licenseFileUuid = licenseFileUuid;
 
         if (role == Role.ROLE_INTEGRATED_ADMIN) {
             this.isApproved = true;
-            this.adminApprovalStatus = AdminApprovalStatus.APPROVED;
         } else if (role == Role.ROLE_COMPANY_ADMIN) {
-            // 기업 관리자는 최고 관리자의 승인을 받아야 함
             this.isApproved = false;
-            this.adminApprovalStatus = AdminApprovalStatus.PENDING;
         } else if (role == Role.ROLE_COMPANY_USER) {
-            // 기업 회원은 사내 관리자의 승인을 받아야 함
             this.isApproved = false;
         } else {
-            // 일반 유저는 기업 승인이 필요 없음 (가입 즉시 활동 가능)
             this.isApproved = true;
         }
     }
@@ -112,13 +101,17 @@ public class Member extends BaseEntity {
         this.totpSecret = secret;
     }
 
-    public void requestCompanyApproval(String businessNumber) {
-        this.businessNumber = businessNumber;
-        this.isApproved = false; // 재요청 시 다시 미승인 대기 상태로
+    public void setCompany(Company company) {
+        this.company = company;
     }
 
     public void approveCompany() {
         this.isApproved = true;
+    }
+
+    public void revokeCompany() {
+        this.isApproved = false;
+        this.company = null;
     }
 
     public void disableMfa() {
@@ -130,16 +123,6 @@ public class Member extends BaseEntity {
         this.password = encodedPassword;
     }
 
-    public void approveByAdmin() {
-        this.isApproved = true;
-        this.adminApprovalStatus = AdminApprovalStatus.APPROVED;
-    }
-
-    public void rejectByAdmin() {
-        this.isApproved = false;
-        this.adminApprovalStatus = AdminApprovalStatus.REJECTED;
-    }
-
     public void updateAccountInfo(String bankName, String accountNumber, String accountHolder) {
         this.bankName = bankName;
         this.accountNumber = accountNumber;
@@ -148,5 +131,14 @@ public class Member extends BaseEntity {
 
     public void updateNotificationSettings(boolean allowNotifications) {
         this.allowNotifications = allowNotifications;
+    }
+
+    // 하위 호환용 헬퍼 메서드
+    public String getBusinessNumber() {
+        return company != null ? company.getBusinessNumber() : null;
+    }
+
+    public AdminApprovalStatus getAdminApprovalStatus() {
+        return company != null ? company.getAdminApprovalStatus() : null;
     }
 }

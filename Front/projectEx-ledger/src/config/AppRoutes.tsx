@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import CommonLayout from "../components/layout/CommonLayout";
 import AuthLayout from "../components/layout/AuthLayout";
+import NotFound from "../pages/error/NotFound";
 import { ProtectedRoute } from "../components/pages/common/ProtectedRoute";
 
 // Common Pages
@@ -29,8 +30,12 @@ import MyPage from "../components/pages/user/MyPage";
 
 // Company
 import CompanyJoin from "../pages/company/CompanyJoin";
-import PendingUsers from "../pages/company/PendingUsers";
+import CompanyMemberManagement from "../pages/company/PendingUsers";
 import CompanyReview from "../pages/integratedadmin/CompanyReview";
+
+// Resource Pages
+import { TermsPage, PrivacyPage, NoticePage, OperationPolicyPage } from "../components/pages/resources/ResourcePages";
+import AdminBroadcast from "../components/pages/admin/AdminBroadcast";
 
 const AppRoutes = () => {
   return (
@@ -41,6 +46,12 @@ const AppRoutes = () => {
         <Route path="/exchange" element={<ExchangePage />} />
         <Route path="/finance" element={<LandingPage />} />
         <Route path="/pages/remittance/Tracking" element={<RemittanceTracking />} />
+        
+        {/* 리소스/정보 페이지 */}
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/notice" element={<NoticePage />} />
+        <Route path="/policy" element={<OperationPolicyPage />} />
 
         {/* 2. 인증 불필요 라우트 (로그인/회원가입 등) */}
         <Route element={<AuthLayout />}>
@@ -63,7 +74,7 @@ const AppRoutes = () => {
 
           {/* ----- 기업 관리자(Company Admin) 전용 라우트 ----- */}
           <Route element={<ProtectedRoute allowedRoles={["ROLE_COMPANY_ADMIN", "COMPANY_ADMIN"]} />}>
-            <Route path="/admin/company/pending" element={<PendingUsers />} />
+            <Route path="/admin/company/pending" element={<CompanyMemberManagement />} />
           </Route>
 
           {/* ----- 최고 관리자(Integrated Admin) 전용 라우트 ----- */}
@@ -77,10 +88,13 @@ const AppRoutes = () => {
             <Route path="/admin/companies/review" element={<CompanyReview />} />
             <Route path="/admin/license-approval" element={<CompanyReview />} />
             <Route path="/remittance" element={<RemittanceManagement />} />
-          </Route>
+            <Route path="/admin/broadcast" element={<AdminBroadcast />} />
         </Route>
       </Route>
-    </Routes>
+    </Route>
+
+    <Route path="*" element={<NotFound />} />
+  </Routes>
   );
 };
 

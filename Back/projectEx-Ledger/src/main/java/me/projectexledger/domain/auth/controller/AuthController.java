@@ -7,18 +7,21 @@ import me.projectexledger.domain.auth.dto.LoginRequest;
 import me.projectexledger.domain.auth.dto.SignupRequest;
 import me.projectexledger.domain.auth.dto.TokenResponse;
 import me.projectexledger.domain.auth.service.AuthService;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import me.projectexledger.domain.auth.dto.MfaLoginRequest;
 import me.projectexledger.domain.auth.dto.MfaSetupResponse;
-import me.projectexledger.domain.auth.service.BusinessVerificationService;
 import me.projectexledger.common.annotation.RequireMfa;
-import org.springframework.web.bind.annotation.GetMapping;
 import java.security.Principal;
 import java.util.Map;
 import me.projectexledger.domain.auth.dto.TokenRefreshRequest;
+import me.projectexledger.domain.auth.dto.MfaSessionResponse;
+import me.projectexledger.domain.auth.dto.UserProfileResponse;
+import me.projectexledger.domain.auth.dto.MfaVerifyRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -58,6 +61,16 @@ public class AuthController {
         }
         MfaSetupResponse response = authService.setupMfa(principal.getName());
         return ApiResponse.success("MFA 설정 준비 완료 (기존 설정은 초기화되었습니다)", response);
+    }
+
+    @PostMapping("/mfa/enable")
+    public ApiResponse<Void> enableMfa(Principal principal, @RequestBody MfaVerifyRequest request) {
+        String email = (principal != null) ? principal.getName() : request.getEmail();
+        if (email == null || email.isEmpty()) {
+            return ApiResponse.fail("이메일 정보가 누락되었습니다.");
+        }
+        authService.enableMfa(email, request);
+        return ApiResponse.success("MFA가 성공적으로 활성화되었습니다.", null);
     }
 
     @PostMapping("/change-password")
@@ -108,5 +121,33 @@ public class AuthController {
     @GetMapping("/test-mfa")
     public ApiResponse<String> testMfaEndpoint(Principal principal) {
         return ApiResponse.success("MFA 인증을 무사히 통과했습니다! 사용자: " + principal.getName(), null);
+    }
+
+    @GetMapping("/mfa/session")
+    public ApiResponse<MfaSessionResponse> getMfaSession(Principal principal) {
+        if (principal == null) return ApiResponse.fail("로그인이 필요합니다.");
+        MfaSessionResponse response = authService.getMfaSessionTtl(principal.getName());
+        return ApiResponse.success("MFA 세션 정보 조회 성공", response);
+    }
+
+    @PostMapping("/mfa/session/extend")
+    public ApiResponse<Void> extendMfaSession(Principal principal) {
+        if (principal == null) return ApiResponse.fail("로그인이 필요합니다.");
+        authService.extendMfaSession(principal.getName());
+        return ApiResponse.success("MFA 세션이 연장되었습니다.", null);
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<UserProfileResponse> getMyProfile(Principal principal) {
+        if (principal == null) return ApiResponse.fail("로그인이 필요합니다.");
+        UserProfileResponse response = authService.getMyProfile(principal.getName());
+        return ApiResponse.success("내 프로필 정보 조회 성공", response);
+    }
+
+    @DeleteMapping("/withdraw")
+    public ApiResponse<Void> withdraw(Principal principal) {
+        if (principal == null) return ApiResponse.fail("로그인이 필요합니다.");
+        authService.withdraw(principal.getName());
+        return ApiResponse.success("회원 탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.", null);
     }
 }
