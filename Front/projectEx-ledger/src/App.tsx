@@ -2,14 +2,15 @@ import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "./config/AppRoutes";
 import { ToastProvider } from "./components/notification/ToastProvider";
-import NotificationCenter from "./components/notification/NotificationCenter";
+import { WalletProvider } from "./context/WalletContext";
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <NotificationCenter />
-        <AppRoutes />
+        <WalletProvider>
+          <AppRoutes />
+        </WalletProvider>
       </ToastProvider>
     </BrowserRouter>
   );

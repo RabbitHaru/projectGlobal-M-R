@@ -4,9 +4,11 @@ import lombok.RequiredArgsConstructor;
 import me.projectexledger.domain.auth.dto.MfaLoginRequest;
 import me.projectexledger.domain.auth.dto.MfaSetupResponse;
 import me.projectexledger.domain.auth.dto.MfaVerifyRequest;
+import me.projectexledger.domain.auth.dto.MfaSessionResponse;
 import me.projectexledger.domain.auth.dto.LoginRequest;
 import me.projectexledger.domain.auth.dto.SignupRequest;
 import me.projectexledger.domain.auth.dto.TokenResponse;
+import me.projectexledger.domain.auth.dto.UserProfileResponse;
 import me.projectexledger.domain.member.entity.Member;
 import me.projectexledger.domain.member.repository.MemberRepository;
 import me.projectexledger.security.JwtTokenProvider;
@@ -16,8 +18,17 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import java.util.List;
+import java.util.Map;
+import java.time.Duration;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
+
+import me.projectexledger.domain.notification.service.SseEmitters;
+import me.projectexledger.domain.company.entity.Company;
+import me.projectexledger.domain.company.repository.CompanyRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -29,25 +40,66 @@ public class AuthService {
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final TurnstileService turnstileService;
     private final GoogleAuthenticator googleAuthenticator;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final PortOneVerificationService portOneVerificationService;
+    private final SseEmitters sseEmitters;
+    private final CompanyRepository companyRepository;
 
     @Transactional
     public Long signup(SignupRequest request) {
         if (!turnstileService.verifyToken(request.getTurnstileToken())) {
-            throw new IllegalArgumentException("Turnstile 검증에 실패했습니다. 봇이 아님을 확인해주세요.");
+            throw new IllegalArgumentException("Turnstile 검증에 실패했습니다.");
+        }
+
+        // 포트원 본인인증 검증
+        if (request.getPortoneImpUid() != null) {
+            Map<String, Object> verification = portOneVerificationService
+                    .getIdentityVerification(request.getPortoneImpUid());
+            // 실명 일치 여부 확인 (Optional)
+            String verifiedName = (String) verification.get("verifiedName");
+            if (verifiedName != null && !verifiedName.equals(request.getName())) {
+                throw new IllegalArgumentException("본인인증된 이름과 입력하신 이름이 일치하지 않습니다.");
+            }
+        } else if (!"INTEGRATED_ADMIN".equals(request.getRoleType())) {
+            // 관리자 외에는 본인인증 필수 (필요시 활성)
+            // throw new IllegalArgumentException("본인인증이 필요합니다.");
         }
 
         if (memberRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 가입되어 있는 이메일입니다.");
         }
 
-        Member.Role role = "COMPANY_ADMIN".equals(request.getRoleType()) ? Member.Role.ROLE_COMPANY_ADMIN
-                : Member.Role.ROLE_USER;
+        Member.Role role;
+        if ("COMPANY_ADMIN".equals(request.getRoleType())) {
+            role = Member.Role.ROLE_COMPANY_ADMIN;
+        } else if ("COMPANY_USER".equals(request.getRoleType())) {
+            role = Member.Role.ROLE_COMPANY_USER;
+        } else {
+            role = Member.Role.ROLE_USER;
+        }
+
+        // 기업 처리
+        Company company = null;
+        if (role == Member.Role.ROLE_COMPANY_ADMIN && request.getBusinessNumber() != null) {
+            // 기업 관리자: 새 Company 생성
+            company = companyRepository.findByBusinessNumber(request.getBusinessNumber())
+                    .orElseGet(() -> companyRepository.save(Company.builder()
+                            .businessNumber(request.getBusinessNumber())
+                            .licenseFileUuid(request.getLicenseFileUuid())
+                            .build()));
+        } else if (role == Member.Role.ROLE_COMPANY_USER && request.getBusinessNumber() != null) {
+            // 기업 멤버: 기존 Company 조회
+            company = companyRepository.findByBusinessNumber(request.getBusinessNumber())
+                    .orElseThrow(() -> new IllegalArgumentException("해당 사업자번호로 등록된 기업이 없습니다."));
+        }
 
         Member member = Member.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
                 .role(role)
+                .company(company)
+                .portoneImpUid(request.getPortoneImpUid())
                 .build();
 
         return memberRepository.save(member).getId();
@@ -55,34 +107,52 @@ public class AuthService {
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
+        // 실제 운영 모드 Turnstile 검증 (실제 SiteKey 적용 시 활성화)
         if (!turnstileService.verifyToken(request.getTurnstileToken())) {
-            throw new IllegalArgumentException("Turnstile 검증에 실패했습니다. 봇이 아님을 확인해주세요.");
+            throw new IllegalArgumentException("봇 방지(Turnstile) 인증에 실패했습니다.");
         }
 
-        // 1. 이메일/비밀번호 기반으로 Authentication 토큰 생성
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                request.getEmail(), request.getPassword());
+        try {
+            // 1. 아이디/비밀번호 인증 시도
+            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                    request.getEmail(), request.getPassword());
+            
+            // AuthenticationManager를 통한 인증 (Password 일치 여부 확인)
+            Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
 
-        // 2. 실제 검증 (사용자 비밀번호 체크 등) - CustomUserDetailsService의 loadUserByUsername 실행됨
-        Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+            // 2. 관리자 미승인 계정 체크 로직 제거 (마이페이지 확인을 위해 로그인 허용)
+            // 승인 여부에 따른 권한 제어는 CustomUserDetailsService에서 수행됨
 
-        Member member = memberRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+            // 3. MFA 체크 로직 제거 (로그인은 비번으로만, 금융 작업 시에만 MFA 요구)
+            // 관리자 및 일반 유저 모두 로그인 시에는 OTP를 묻지 않음
 
-        // 모든 사용자에게 예외 없이 MFA 검증 및 설정 강제
-        if (!member.isMfaEnabled()) {
-            // 아직 설정을 안 했다면, frontend가 setupMfa를 호출하도록 유도
-            return new TokenResponse(null, "Bearer", false, true);
+            // 4. 최종 토큰 발급
+            String jwt = jwtTokenProvider.createToken(authentication);
+            String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+
+            redisTemplate.opsForValue().set("RT:" + authentication.getName(), refreshToken, Duration.ofDays(7));
+
+            // 5. 로그인 알림 발송
+            sseEmitters.sendLoginAlert(request.getEmail(), "새로운 기기에서 로그인이 감지되었습니다.");
+
+            return new TokenResponse(jwt, refreshToken, "Bearer", false, false);
+
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다. 다시 확인해주세요.");
+        } catch (org.springframework.security.core.userdetails.UsernameNotFoundException e) {
+            throw new IllegalArgumentException("가입되지 않은 이메일 주소입니다.");
+        } catch (org.springframework.security.authentication.DisabledException e) {
+            throw new IllegalStateException("활동이 정지된 계정입니다. 고객센터에 문의해주세요.");
+        } catch (Exception e) {
+            if (e instanceof IllegalArgumentException || e instanceof IllegalStateException) throw e;
+            throw new RuntimeException("로그인 처리 중 오류가 발생했습니다: " + e.getMessage());
         }
-
-        // 설정이 되어 있다면 OTP 코드 입력 단계로 이동
-        return new TokenResponse(null, "Bearer", true, false);
     }
 
     @Transactional
     public TokenResponse loginWithMfa(MfaLoginRequest request) {
         if (!turnstileService.verifyToken(request.getTurnstileToken())) {
-            throw new IllegalArgumentException("Turnstile 검증에 실패했습니다. 봇이 아님을 확인해주세요.");
+            throw new IllegalArgumentException("봇 방지(Turnstile) 인증에 실패했습니다.");
         }
 
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
@@ -98,11 +168,48 @@ public class AuthService {
 
         boolean isCodeValid = googleAuthenticator.authorize(member.getTotpSecret(), request.getCode());
         if (!isCodeValid) {
-            throw new IllegalArgumentException("잘못된 OTP 코드입니다.");
+            throw new IllegalArgumentException("잘못된 OTP 코드입니다. 다시 입력해주세요.");
         }
 
+        // MFA 인증 성공 시 세션 유지 (관리자는 24시간, 일반 유저는 15분)
+        Duration sessionDuration = (member.getRole() == Member.Role.ROLE_INTEGRATED_ADMIN)
+                ? Duration.ofHours(24)
+                : Duration.ofMinutes(15);
+        redisTemplate.opsForValue().set("MFA_VERIFIED:" + member.getEmail(), "true", sessionDuration);
+
         String jwt = jwtTokenProvider.createToken(authentication);
-        return new TokenResponse(jwt, "Bearer", false, false);
+        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+
+        redisTemplate.opsForValue().set("RT:" + authentication.getName(), refreshToken, Duration.ofDays(7));
+
+        return new TokenResponse(jwt, refreshToken, "Bearer", false, false);
+    }
+
+    @Transactional
+    public TokenResponse refreshToken(String refreshToken) {
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new IllegalArgumentException("유효하지 않은 Refresh Token 입니다. 다시 로그인해주세요.");
+        }
+
+        String email = jwtTokenProvider.getSubjectFromToken(refreshToken);
+
+        String savedToken = (String) redisTemplate.opsForValue().get("RT:" + email);
+        if (savedToken == null || !savedToken.equals(refreshToken)) {
+            throw new IllegalArgumentException("로그아웃 되었거나 무효화된 토큰입니다. 다시 로그인해주세요.");
+        }
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(email, null,
+                List.of(new SimpleGrantedAuthority(member.getRole().name())));
+
+        String newAccessToken = jwtTokenProvider.createToken(authentication);
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(authentication);
+
+        redisTemplate.opsForValue().set("RT:" + email, newRefreshToken, Duration.ofDays(7));
+
+        return new TokenResponse(newAccessToken, newRefreshToken, "Bearer", false, false);
     }
 
     @Transactional
@@ -110,12 +217,13 @@ public class AuthService {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        if (member.isMfaEnabled()) {
-            throw new IllegalArgumentException("이미 MFA가 활성화되어 있습니다.");
-        }
-
+        // 재발급(reset) 시에도 사용 가능하도록 수정
         GoogleAuthenticatorKey key = googleAuthenticator.createCredentials();
         member.updateTotpSecret(key.getKey());
+
+        // MFA가 이미 활성화되어 있었다면, 새로운 키 등록 전까지는 유효하도록 둘 수도 있지만
+        // 여기서는 즉시 비활성화 후 재등록 유도
+        member.disableMfa();
 
         String qrCodeUrl = String.format("otpauth://totp/Ex-Ledger:%s?secret=%s&issuer=Ex-Ledger", email, key.getKey());
         return new MfaSetupResponse(key.getKey(), qrCodeUrl);
@@ -126,15 +234,91 @@ public class AuthService {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        if (member.isMfaEnabled()) {
-            throw new IllegalArgumentException("이미 MFA가 활성화되어 있습니다.");
-        }
-
         boolean isCodeValid = googleAuthenticator.authorize(member.getTotpSecret(), request.getCode());
         if (!isCodeValid) {
             throw new IllegalArgumentException("잘못된 OTP 코드입니다.");
         }
 
         member.enableMfa();
+    }
+
+    @Transactional
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        member.updatePassword(passwordEncoder.encode(newPassword));
+    }
+
+    @Transactional
+    public void updateAccountInfo(String email, String bankName, String accountNumber, String accountHolder) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        member.updateAccountInfo(bankName, accountNumber, accountHolder);
+    }
+
+    @Transactional
+    public void updateNotificationSettings(String email, boolean allowNotifications) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        member.updateNotificationSettings(allowNotifications);
+    }
+
+    @Transactional(readOnly = true)
+    public MfaSessionResponse getMfaSessionTtl(String email) {
+        String key = "MFA_VERIFIED:" + email;
+        Long ttl = redisTemplate.getExpire(key);
+        
+        if (ttl == null || ttl <= 0) {
+            return new MfaSessionResponse(false, 0, email);
+        }
+        
+        return new MfaSessionResponse(true, ttl, email);
+    }
+
+    @Transactional
+    public void extendMfaSession(String email) {
+        String key = "MFA_VERIFIED:" + email;
+        Boolean hasSession = redisTemplate.hasKey(key);
+        
+        if (hasSession == null || !hasSession) {
+            throw new IllegalStateException("활성화된 MFA 세션이 없습니다. 먼저 OTP 인증을 해주세요.");
+        }
+        
+        // 세션 연장 (관리자는 24시간, 일반 유저는 15분)
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Duration sessionDuration = (member.getRole() == Member.Role.ROLE_INTEGRATED_ADMIN)
+                ? Duration.ofHours(24)
+                : Duration.ofMinutes(15);
+        redisTemplate.expire(key, sessionDuration);
+    }
+
+    @Transactional(readOnly = true)
+    public UserProfileResponse getMyProfile(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        return UserProfileResponse.from(member);
+    }
+
+    @Transactional
+    public void withdraw(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (member.getRole() == Member.Role.ROLE_INTEGRATED_ADMIN) {
+            throw new IllegalArgumentException("시스템 총괄 관리자는 회원 탈퇴가 불가능합니다.");
+        }
+
+        // 관련 데이터 삭제 로직 (필요시 추가)
+        memberRepository.delete(member);
+        
+        // 리프레시 토큰 삭제
+        redisTemplate.delete("RT:" + email);
+        redisTemplate.delete("MFA_VERIFIED:" + email);
     }
 }

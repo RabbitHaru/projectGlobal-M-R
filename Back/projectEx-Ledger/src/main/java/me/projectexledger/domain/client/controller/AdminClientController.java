@@ -14,13 +14,14 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @Slf4j
 @RestController
 // 🌟 프론트엔드와 통신하기 위해 경로를 맞춥니다.
 @RequestMapping("/api/admin/clients")
 @RequiredArgsConstructor
-// @PreAuthorize("hasRole('ADMIN')") // 임시 주석 처리
+@PreAuthorize("hasRole('INTEGRATED_ADMIN')")
 public class AdminClientController {
 
     private final ClientService clientService;
@@ -67,8 +68,7 @@ public class AdminClientController {
                 platformFeeRate,
                 preferenceRate,
                 networkFee,
-                exchangeSpread
-        );
+                exchangeSpread);
 
         return ResponseEntity.ok(ApiResponse.success("가맹점 등급 및 수수료 정책이 성공적으로 반영되었습니다!", null));
     }
@@ -90,8 +90,7 @@ public class AdminClientController {
                         "admin@example.com",
                         client.getStatus().name(),
                         client.getFeeRate(),
-                        null
-                ))
+                        null))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success("승인 대기 리스트 조회 성공", realList));

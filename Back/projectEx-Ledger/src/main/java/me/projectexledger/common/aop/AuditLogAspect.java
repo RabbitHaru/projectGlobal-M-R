@@ -17,10 +17,19 @@ import java.lang.reflect.Method;
 /**
  * 금융 API 및 주요 메서드 호출 전역 자동 로깅 (블랙박스)
  */
+import me.projectexledger.domain.audit.entity.SystemAuditLog;
+import me.projectexledger.domain.audit.repository.SystemAuditLogRepository;
+
 @Slf4j
 @Aspect
 @Component
 public class AuditLogAspect {
+
+    private final SystemAuditLogRepository systemAuditLogRepository;
+
+    public AuditLogAspect(SystemAuditLogRepository systemAuditLogRepository) {
+        this.systemAuditLogRepository = systemAuditLogRepository;
+    }
 
     @Around("@annotation(me.projectexledger.common.annotation.AuditLog)")
     public Object auditAndLog(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -45,17 +54,33 @@ public class AuditLogAspect {
         log.info("[AUDIT-START] User: [{}], Action: [{}], IP: [{}], URI: [{}]", userEmail, action, clientIp,
                 requestUri);
 
-        Object result;
+        Object result = null;
         long startTime = System.currentTimeMillis();
+        String errorMsg = null;
         try {
             result = joinPoint.proceed();
         } catch (Throwable th) {
+            errorMsg = th.getMessage();
             log.error("[AUDIT-ERROR] User: [{}], Action: [{}], IP: [{}], Error: {}", userEmail, action, clientIp,
                     th.getMessage());
             throw th;
         } finally {
             long duration = System.currentTimeMillis() - startTime;
             log.info("[AUDIT-END] User: [{}], Action: [{}], Duration: {}ms", userEmail, action, duration);
+
+            try {
+                SystemAuditLog auditEntity = SystemAuditLog.builder()
+                        .userEmail(userEmail)
+                        .action(action)
+                        .clientIp(clientIp)
+                        .requestUri(requestUri)
+                        .durationMs(duration)
+                        .errorMessage(errorMsg)
+                        .build();
+                systemAuditLogRepository.save(auditEntity);
+            } catch (Exception e) {
+                log.error("시스템 감사 로그 DB 저장 실패", e);
+            }
         }
 
         return result;

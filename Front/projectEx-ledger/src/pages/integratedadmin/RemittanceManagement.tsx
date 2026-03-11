@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import CommonLayout from "../../components/layout/CommonLayout"; 
+import { toast } from 'sonner';
+import http from '../../config/http';
 
 export interface RemittanceHistoryData {
   id: number;
-  settlementId: number; 
+  settlementId: number;
   groupedIds?: number[]; // 🌟 [추가] 묶인 결제 건들의 ID를 담아 일괄 처리에 사용합니다.
   clientName: string;
   bankName: string;
   accountNumber: string;
   amount: number;
   currency: string;
-  status: string; 
+  status: string;
   errorMessage: string;
   attemptCount: number;
   updatedAt: string;
@@ -20,16 +21,16 @@ const RemittanceManagement: React.FC = () => {
   const [data, setData] = useState<RemittanceHistoryData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 10; 
+  const itemsPerPage = 10;
 
   const fetchRemittanceHistory = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin/settlements/reconciliations?page=0&size=1000');
-      if (response.ok) {
-        const result = await response.json();
-        
-        const failedSettlements = (result.data || []).filter((item: any) => item.status === 'FAILED');
+      const response: any = await http.get('/admin/settlements/reconciliations?page=0&size=1000');
+      if (response && response.data && response.data.status === 'SUCCESS') {
+        const result = response.data;
+
+        const failedSettlements = (result.data?.content || []).filter((item: any) => item.status === 'FAILED');
 
         const mappedData: RemittanceHistoryData[] = failedSettlements.map((item: any) => ({
           id: item.id,
@@ -38,11 +39,11 @@ const RemittanceManagement: React.FC = () => {
           clientName: item.clientName,
           bankName: item.bankName || '알 수 없음',
           accountNumber: item.accountNumber || '-',
-          amount: item.settlementAmount, 
-          currency: '원', 
+          amount: item.settlementAmount,
+          currency: '원',
           status: item.status,
-          errorMessage: '송금망 전송 실패 및 타임아웃', 
-          attemptCount: 1, 
+          errorMessage: '송금망 전송 실패 및 타임아웃',
+          attemptCount: 1,
           updatedAt: item.updatedAt
         }));
 
@@ -53,7 +54,7 @@ const RemittanceManagement: React.FC = () => {
 
           for (let i = 1; i < mappedData.length; i++) {
             const row = mappedData[i];
-            
+
             // 이전 행과 고객명이 같으면 그룹으로 묶어 횟수를 올립니다.
             if (currentGroup.clientName === row.clientName) {
               currentGroup.attemptCount += 1;
@@ -70,7 +71,7 @@ const RemittanceManagement: React.FC = () => {
 
         setData(groupedData);
       } else {
-        setData([]); 
+        setData([]);
       }
     } catch (error) {
       console.error("데이터 로드 실패:", error);
@@ -87,25 +88,25 @@ const RemittanceManagement: React.FC = () => {
   const handleRetryGroup = async (groupedIds: number[]) => {
     const count = groupedIds.length;
     if (!window.confirm(`선택된 ${count}건의 송금을 일괄 재전송하시겠습니까?`)) return;
-    
+
     try {
       // 배열 안의 모든 ID를 반복하여 백엔드로 비동기 API 요청을 날립니다.
-      const promises = groupedIds.map(id => 
-        fetch(`/api/admin/settlements/${id}/retry`, { method: 'POST' })
+      const promises = groupedIds.map(id =>
+        http.post(`/admin/settlements/${id}/retry`)
       );
-      
-      const results = await Promise.all(promises);
-      const successCount = results.filter(r => r.ok).length;
+
+      const results: any[] = await Promise.all(promises);
+      const successCount = results.filter(r => r && r.data && r.data.status === 'SUCCESS').length;
 
       if (successCount === count) {
-        alert(`✅ ${count}건 모두 재전송 요청이 완료되었습니다.`);
+        toast.success(`✅ ${count}건 모두 재전송 요청이 완료되었습니다.`);
       } else {
-        alert(`⚠️ ${successCount}건 성공, ${count - successCount}건 실패했습니다.`);
+        toast.success(`⚠️ ${successCount}건 성공, ${count - successCount}건 실패했습니다.`);
       }
-      
-      fetchRemittanceHistory(); 
+
+      fetchRemittanceHistory();
     } catch (error) {
-      alert("서버 통신 중 오류가 발생했습니다.");
+      toast.error("서버 통신 중 오류가 발생했습니다.");
     }
   };
 
@@ -121,7 +122,7 @@ const RemittanceManagement: React.FC = () => {
   const paginatedData = data.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <CommonLayout>
+    <>
       <main className="flex-grow w-full px-4 py-8 mx-auto max-w-7xl">
         <div className="p-8 bg-white border border-gray-200 shadow-sm rounded-xl">
           <div className="flex flex-col justify-between gap-4 mb-8 xl:flex-row xl:items-end">
@@ -129,10 +130,10 @@ const RemittanceManagement: React.FC = () => {
               <h2 className="text-2xl font-bold text-gray-900">자동 송금 실패 및 이력 관리</h2>
               <p className="mt-1 text-sm text-gray-500">은행망 오류 등으로 실패한 송금 내역을 확인하고 재전송합니다.</p>
             </div>
-            
+
             <div className="flex justify-end w-full lg:w-auto">
-              <button 
-                onClick={fetchRemittanceHistory} 
+              <button
+                onClick={fetchRemittanceHistory}
                 className="px-4 py-2 text-sm font-medium text-white bg-[#007b70] rounded-md shadow-sm hover:bg-teal-800 transition whitespace-nowrap"
               >
                 새로고침
@@ -163,10 +164,10 @@ const RemittanceManagement: React.FC = () => {
                     <td className="px-2 py-5 text-sm font-medium text-gray-500">#{row.id}</td>
                     <td className="px-2 py-5 text-sm text-gray-500 whitespace-nowrap">{row.updatedAt || "-"}</td>
                     <td className="px-2 py-5">
-                        <div className="text-sm font-bold text-gray-800">{row.clientName}</div>
-                        <div className="font-mono text-xs text-gray-500 mt-0.5 tabular-nums">
-                            {row.bankName} {row.accountNumber}
-                        </div>
+                      <div className="text-sm font-bold text-gray-800">{row.clientName}</div>
+                      <div className="font-mono text-xs text-gray-500 mt-0.5 tabular-nums">
+                        {row.bankName} {row.accountNumber}
+                      </div>
                     </td>
                     <td className="px-2 py-5 font-semibold text-center text-gray-800">
                       {row.amount?.toLocaleString()}{row.currency}
@@ -188,8 +189,8 @@ const RemittanceManagement: React.FC = () => {
                     </td>
                     <td className="px-2 py-5 text-center">
                       {row.status === 'FAILED' ? (
-                        <button 
-                          onClick={() => handleRetryGroup(row.groupedIds || [row.settlementId])} 
+                        <button
+                          onClick={() => handleRetryGroup(row.groupedIds || [row.settlementId])}
                           className="px-3 py-1.5 text-xs font-bold text-white bg-[#007b70] rounded shadow-sm hover:bg-teal-800 transition whitespace-nowrap"
                         >
                           일괄 재전송 🚀
@@ -219,7 +220,7 @@ const RemittanceManagement: React.FC = () => {
           )}
         </div>
       </main>
-    </CommonLayout>
+    </>
   );
 };
 
