@@ -28,7 +28,7 @@ public class EncryptionUtil {
         byte[] keyBytes = new byte[32];
         byte[] secretBytes = secretKey.getBytes(StandardCharsets.UTF_8);
         System.arraycopy(secretBytes, 0, keyBytes, 0, Math.min(secretBytes.length, 32));
-        
+
         this.keySpec = new SecretKeySpec(keyBytes, "AES");
         this.ivSpec = new IvParameterSpec(DEFAULT_IV.getBytes(StandardCharsets.UTF_8));
     }
@@ -37,7 +37,8 @@ public class EncryptionUtil {
      * 문자열 암호화
      */
     public String encrypt(String plainText) {
-        if (plainText == null || plainText.isEmpty()) return plainText;
+        if (plainText == null || plainText.isEmpty())
+            return plainText;
         try {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
@@ -53,7 +54,8 @@ public class EncryptionUtil {
      * 문자열 복호화
      */
     public String decrypt(String encryptedText) {
-        if (encryptedText == null || encryptedText.isEmpty()) return encryptedText;
+        if (encryptedText == null || encryptedText.isEmpty())
+            return encryptedText;
         try {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);

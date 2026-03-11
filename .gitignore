@@ -1,1 +1,9 @@
 startup_error.log
+error.log
+build_log.txt
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
