@@ -192,7 +192,13 @@ public class DummyDataInit implements CommandLineRunner {
                     .role(Member.Role.ROLE_COMPANY_USER)
                     .company(companyApproved)
                     .build();
+            corpStaffPending.updateAccountInfo(null, null, null);
             membersToSave.add(corpStaffPending);
+        } else {
+            memberRepository.findByEmail("staff2@exglobal.com").ifPresent(existing -> {
+                existing.setCompany(companyApproved);
+                existing.updateAccountInfo(null, null, null);
+            });
         }
 
         // ========== 5. [심사 대기 기업] 관리자 ==========
@@ -204,7 +210,13 @@ public class DummyDataInit implements CommandLineRunner {
                     .role(Member.Role.ROLE_COMPANY_ADMIN)
                     .company(companyPending)
                     .build();
+            pendingAdmin.updateAccountInfo(null, null, null);
             membersToSave.add(pendingAdmin);
+        } else {
+            memberRepository.findByEmail("ceo@startup.com").ifPresent(existing -> {
+                existing.setCompany(companyPending);
+                existing.updateAccountInfo(null, null, null);
+            });
         }
 
         // ========== 6. [반려된 기업] 관리자 ==========
@@ -216,7 +228,13 @@ public class DummyDataInit implements CommandLineRunner {
                     .role(Member.Role.ROLE_COMPANY_ADMIN)
                     .company(companyRejected)
                     .build();
+            rejectedAdmin.updateAccountInfo(null, null, null);
             membersToSave.add(rejectedAdmin);
+        } else {
+            memberRepository.findByEmail("fail@trade.com").ifPresent(existing -> {
+                existing.setCompany(companyRejected);
+                existing.updateAccountInfo(null, null, null);
+            });
         }
 
         if (!membersToSave.isEmpty()) {

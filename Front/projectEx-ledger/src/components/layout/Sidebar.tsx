@@ -76,11 +76,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   };
 
   const isCorporate = hasRole("ROLE_COMPANY_USER") || hasRole("ROLE_COMPANY_ADMIN");
+  const isCorporateApproved = isCorporate && isApproved;
 
   // 현재 활성 계좌 결정
-  const activeAccountId = isCorporate ? businessNumber : (parseJwt(getToken() || '')?.sub || '');
+  const activeAccountId = isCorporateApproved ? businessNumber : (parseJwt(getToken() || '')?.sub || '');
   const walletData = getWalletDataById(activeAccountId || '');
-  const currentAccount = walletData?.userAccount || userAccount;
+  const currentAccount = isCorporate && !isApproved ? null : (walletData?.userAccount || userAccount);
   const currentBalances = walletData?.balances || balances;
 
   const isActive = (path: string) => location.pathname === path;
@@ -286,6 +287,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </div>
                 <button
                   onClick={copyAccount}
+                  disabled={!currentAccount}
                   className="p-2 transition-colors bg-white/5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white"
                 >
                   <Copy size={14} />
