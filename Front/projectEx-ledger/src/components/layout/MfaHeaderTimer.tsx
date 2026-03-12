@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import http from '../../config/http';
 import { toast } from 'sonner';
@@ -8,40 +8,54 @@ import { getRefreshToken, getToken, logout, parseJwt, setRefreshToken, setToken 
 export const MfaHeaderTimer: React.FC = () => {
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
-
-    const computeJwtRemainingSeconds = useMemo(() => {
-        return () => {
-            const token = getToken();
-            if (!token) return null;
-            const payload = parseJwt(token);
-            const authorities: string = payload?.auth || '';
-            const roles = authorities.split(',').filter(Boolean);
-            const isIntegratedAdmin = roles.includes('ROLE_INTEGRATED_ADMIN');
-            const exp = payload?.exp;
-            if (typeof exp !== 'number') return null;
-            const diffMs = exp * 1000 - Date.now();
-            const diffSec = Math.floor(diffMs / 1000);
-            const remaining = diffSec > 0 ? diffSec : 0;
-            if (!isIntegratedAdmin) {
-                return Math.min(remaining, 15 * 60);
-            }
-            return remaining;
-        };
-    }, []);
+    const lastTokenRef = useRef<string | null>(null);
 
     useEffect(() => {
         const tick = () => {
-            const remaining = computeJwtRemainingSeconds();
-            setTimeLeft(remaining);
-            if (remaining === 0) {
-                logout();
+            const token = getToken();
+            if (!token) {
+                lastTokenRef.current = null;
+                setTimeLeft(null);
+                return;
             }
+
+            const payload = parseJwt(token);
+            const exp = payload?.exp;
+            if (typeof exp !== 'number') {
+                lastTokenRef.current = null;
+                setTimeLeft(null);
+                return;
+            }
+
+            const authorities: string = payload?.auth || '';
+            const roles = authorities.split(',').filter(Boolean);
+            const isIntegratedAdmin = roles.includes('ROLE_INTEGRATED_ADMIN');
+            const capSeconds = isIntegratedAdmin ? Number.POSITIVE_INFINITY : 15 * 60;
+
+            const remainingMs = exp * 1000 - Date.now();
+            const jwtRemaining = Math.max(0, Math.floor(remainingMs / 1000));
+            if (jwtRemaining <= 0) {
+                setTimeLeft(0);
+                logout();
+                return;
+            }
+
+            const tokenChanged = lastTokenRef.current !== token;
+            lastTokenRef.current = token;
+
+            setTimeLeft((prev) => {
+                const initial = Math.min(jwtRemaining, capSeconds);
+                if (tokenChanged || prev === null) return initial;
+
+                const next = Math.max(0, prev - 1);
+                return Math.min(next, jwtRemaining, capSeconds);
+            });
         };
 
         tick();
         const timer = setInterval(tick, 1000);
         return () => clearInterval(timer);
-    }, [computeJwtRemainingSeconds]);
+    }, []);
 
     const handleExtend = async () => {
         if (isRefreshing) return;
