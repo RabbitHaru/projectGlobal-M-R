@@ -172,6 +172,14 @@ public class Member extends BaseEntity {
         this.allowNotifications = allowNotifications;
     }
 
+    public void updateRole(Role role) {
+        this.role = role;
+    }
+
+    public void setApproved(boolean isApproved) {
+        this.isApproved = isApproved;
+    }
+
     // 하위 호환용 헬퍼 메서드
     public String getBusinessNumber() {
         return company != null ? company.getBusinessNumber() : null;

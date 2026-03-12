@@ -20,6 +20,7 @@ import ReconciliationList from "../pages/integratedadmin/ReconciliationList";
 import ExchangeDashboard from "../components/pages/remittance/ExchangeDashboard";
 import MySettlementList from "../components/pages/settlement/MySettlementList";
 import RemittanceManagement from "../pages/integratedadmin/RemittanceManagement";
+import AdminMemberManagement from "../pages/integratedadmin/MemberManagement";
 import TransactionHistory from "../components/dashboard/TransactionHistory";
 import RemittanceTracking from "../components/pages/remittance/Tracking/RemittanceTracking";
 import ExchangePage from "../components/widgets/finance/ExchangePage";
@@ -103,8 +104,7 @@ const AppRoutes = () => {
             <Route path="/remittance" element={<RemittanceManagement />} />
             <Route path="/admin/broadcast" element={<AdminBroadcast />} />
             <Route path="/admin/grade-policy" element={<GradePolicyManagement />} />
-            
-            
+            <Route path="/admin/members" element={<AdminMemberManagement />} />
         </Route>
       </Route>
     </Route>
