@@ -69,13 +69,13 @@ public class Settlement extends BaseEntity implements ReconciliationUtil.Interna
     @Column(name = "resolution_reason", length = 500)
     private String resolutionReason;
 
-    // 🌟 [빌더] - SettlementEngineService에서 데이터 저장 시 사용
     @Builder
     public Settlement(String orderId, String transactionId,
-                      String merchantId, // 🌟 [수정/추가] 파라미터에 누락되었던 merchantId를 추가했습니다!
+                      String merchantId,
                       String clientName, String bankName, String accountNumber, BigDecimal amount,
                       String currency, BigDecimal settlementAmount, SettlementStatus status,
-                      BigDecimal baseRate, BigDecimal finalAppliedRate, BigDecimal preferredRate, BigDecimal spreadFee) {
+                      BigDecimal baseRate, BigDecimal finalAppliedRate, BigDecimal preferredRate, BigDecimal spreadFee,
+                      String resolutionReason) { // 🌟 1. 파라미터에 추가!
         this.orderId = orderId;
         this.transactionId = transactionId;
         this.merchantId = merchantId;
@@ -90,6 +90,7 @@ public class Settlement extends BaseEntity implements ReconciliationUtil.Interna
         this.finalAppliedRate = finalAppliedRate;
         this.preferredRate = preferredRate;
         this.spreadFee = spreadFee;
+        this.resolutionReason = resolutionReason; // 🌟 2. 필드에 할당!
     }
 
     // 🌟 [비즈니스 로직 메서드]

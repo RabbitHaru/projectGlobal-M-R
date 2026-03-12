@@ -90,27 +90,11 @@ public class AdminSettlementController {
         return ResponseEntity.ok(ApiResponse.success("수수료 정책이 성공적으로 반영되었습니다.", null));
     }
 
-    @PostMapping("/test-data")
-    public ResponseEntity<ApiResponse<String>> createTestData(
-            @RequestParam SettlementStatus status,
-            @RequestParam(required = false) BigDecimal amount,
-            @RequestParam(required = false) ClientGrade grade
-    ) {
-        BigDecimal finalAmount = (amount != null) ? amount : new BigDecimal("50000000");
-        ClientGrade finalGrade = (grade != null) ? grade : ClientGrade.PARTNER;
-
-        log.info("[Admin] 발표용 랜덤 테스트 데이터 생성 요청 (상태: {}, 금액: {}, 등급: {})", status, finalAmount, finalGrade);
-
-        settlementEngineService.createTestSettlement(
-                "T-ORDER-" + System.currentTimeMillis(),
-                "Ex-Ledge 핵심 파트너",
-                finalAmount,
-                "KRW",
-                status,
-                finalGrade
-        );
-
-        return ResponseEntity.ok(ApiResponse.success("랜덤 테스트 데이터가 생성되었습니다!", null));
+    @PostMapping("/test-data/random")
+    public ResponseEntity<ApiResponse<Void>> createRandomTestData(@RequestParam(defaultValue = "10") int count) {
+        log.info("[Admin] 랜덤 테스트 데이터 {}개 생성 요청", count);
+        settlementEngineService.createRandomTestSettlements(count);
+        return ResponseEntity.ok(ApiResponse.success("랜덤 데이터 생성이 완료되었습니다.", null));
     }
 
     // 수동 정산 승인

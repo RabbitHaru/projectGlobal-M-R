@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class SettlementEngineService {
 
-    private final PaymentLogRepository paymentLogRepository;
+
     private final SettlementRepository settlementRepository;
     private final ExchangeRateCalculator exchangeRateCalculator;
     private final PortOneClient portOneClient;
@@ -232,68 +232,34 @@ public class SettlementEngineService {
     }
 
     @Transactional
-    public void createTestSettlement(String orderId, String clientName, BigDecimal amount, String currency, SettlementStatus status, ClientGrade grade) {
-        for (int i = 0; i < 10; i++) {
-            final int loopIndex = i;
+    public void createRandomTestSettlements(int count) {
+        String[] clientList = {"(주)무신사", "우아한형제들", "당근마켓", "쿠팡페이", "오늘의집", "(주)로켓상사", "네이버페이", "야놀자", "토스", "직방"};
+        SettlementStatus[] statuses = {SettlementStatus.COMPLETED, SettlementStatus.FAILED, SettlementStatus.REJECTED};
+        String[] bankList = {"국민은행", "신한은행", "우리은행", "하나은행", "카카오뱅크", "기업은행", "농협은행"};
 
-            String uniqueOrderId = (orderId != null ? orderId : "T-ORDER") + "-TEST-" + loopIndex + "-" + System.nanoTime();
+        java.util.Random random = new java.util.Random();
 
-            String[] clientList = {"(주)무신사", "우아한형제들", "당근마켓", "쿠팡페이", "오늘의집", "(주)로켓상사", "네이버페이", "야놀자", "토스", "직방"};
-            String finalClientName = clientList[(int)(Math.random() * clientList.length)];
+        for (int i = 0; i < count; i++) {
+            String randomClient = clientList[random.nextInt(clientList.length)];
+            SettlementStatus randomStatus = statuses[random.nextInt(statuses.length)];
+            String randomBank = bankList[random.nextInt(bankList.length)];
 
-            ClientGrade mixedGrade = (loopIndex % 2 == 0) ? ClientGrade.PARTNER : ClientGrade.GENERAL;
-
-            String[] bankList = {"국민은행", "신한은행", "우리은행", "하나은행", "카카오뱅크", "기업은행", "농협은행"};
-
-            Client client = clientRepository.findByName(finalClientName).orElseGet(() -> {
-                String randomBank = bankList[(int)(Math.random() * bankList.length)];
-                String randomAccount = (int)(Math.random() * 900 + 100) + "-" + (int)(Math.random() * 900000 + 100000) + "-" + (int)(Math.random() * 90 + 10);
-
-                return clientRepository.save(Client.builder()
-                        .merchantId(generateProMerchantId())
-                        .name(finalClientName)
-                        .businessNumber("000-00-" + (int)(Math.random() * 90000 + (loopIndex * 100)))
-                        .status(ClientStatus.APPROVED)
-                        .grade(mixedGrade)
-                        .bankName(randomBank)
-                        .accountNumber(randomAccount)
-                        .build());
-            });
-
-            client.setGrade(mixedGrade);
-
-            long[] cleanAmounts = {10000000L, 20000000L, 30000000L, 50000000L, 80000000L, 100000000L, 150000000L, 200000000L};
-            long randomCleanAmount = cleanAmounts[(int)(Math.random() * cleanAmounts.length)];
-
-            BigDecimal originalAmount = new BigDecimal(randomCleanAmount);
-
-            BigDecimal realUsdRate = exchangeRateCalculator.getExchangeRate("USD");
-            if (realUsdRate == null) realUsdRate = new BigDecimal("1400.00");
-
-            SettlementPolicy policy = settlementPolicyService.getEffectivePolicy(client.getMerchantId(), client.getGrade());
-
-            BigDecimal feeRate = policy.getPlatformFeeRate();
-            BigDecimal networkFee = policy.getNetworkFee();
-            BigDecimal spread = policy.getExchangeSpread();
-            BigDecimal prefRate = policy.getPreferenceRate();
-
-            BigDecimal finalSettlementAmount = originalAmount.subtract(originalAmount.multiply(feeRate)).subtract(networkFee)
-                    .setScale(0, RoundingMode.DOWN);
+            // 100만 ~ 2억 사이의 랜덤 금액 생성
+            long[] cleanAmounts = {10000000L, 20000000L, 50000000L, 80000000L, 120000000L, 200000000L};
+            BigDecimal amount = new BigDecimal(cleanAmounts[random.nextInt(cleanAmounts.length)]);
+            BigDecimal settlementAmount = amount.multiply(new BigDecimal("0.98")).setScale(0, RoundingMode.DOWN);
 
             settlementRepository.save(Settlement.builder()
-                    .orderId(uniqueOrderId)
-                    .transactionId("TX-" + System.nanoTime() + "-" + loopIndex)
-                    .clientName(client.getName())
-                    .bankName(client.getBankName())
-                    .accountNumber(client.getAccountNumber())
-                    .amount(originalAmount)
-                    .currency(currency != null ? currency : "KRW")
-                    .settlementAmount(finalSettlementAmount)
-                    .baseRate(realUsdRate)
-                    .finalAppliedRate(realUsdRate.subtract(spread))
-                    .preferredRate(prefRate)
-                    .spreadFee(spread)
-                    .status(status)
+                    .orderId("T-ORDER-" + System.currentTimeMillis() + "-" + i)
+                    .transactionId("TX-" + System.nanoTime())
+                    .clientName(randomClient)
+                    .bankName(randomBank)
+                    .accountNumber((random.nextInt(900) + 100) + "-" + (random.nextInt(900000) + 100000) + "-12")
+                    .amount(amount)
+                    .currency("KRW")
+                    .settlementAmount(settlementAmount)
+                    .status(randomStatus)
+                    .resolutionReason(randomStatus == SettlementStatus.REJECTED ? "계좌 정보 불일치로 인한 관리자 반려" : null)
                     .build());
         }
     }
