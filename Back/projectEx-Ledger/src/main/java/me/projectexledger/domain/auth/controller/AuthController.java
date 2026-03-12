@@ -32,9 +32,9 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/signup")
-    public ApiResponse<Long> signup(@Valid @RequestBody SignupRequest request) {
-        Long memberId = authService.signup(request);
-        return ApiResponse.success("회원가입이 완료되었습니다.", memberId);
+    public ApiResponse<TokenResponse> signup(@Valid @RequestBody SignupRequest request) {
+        TokenResponse tokenResponse = authService.signup(request);
+        return ApiResponse.success("회원가입이 완료되었습니다.", tokenResponse);
     }
 
     @PostMapping("/login")

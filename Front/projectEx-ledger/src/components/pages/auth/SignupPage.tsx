@@ -7,7 +7,10 @@ import http from '../../../config/http';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { PasswordStrength } from '../common/PasswordStrength';
 import { toast } from 'sonner';
-import { ArrowRight, ArrowLeft, Check, User, Building2, ShieldCheck, FileCheck } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, User, Building2, ShieldCheck, FileCheck, KeyRound, ShieldAlert } from 'lucide-react';
+import { setRefreshToken, setToken } from '../../../config/auth';
+import { QRCodeSVG } from 'qrcode.react';
+import { OtpInput } from '../common/OtpInput';
 
 const SignupPage: React.FC = () => {
     const navigate = useNavigate();
@@ -30,10 +33,17 @@ const SignupPage: React.FC = () => {
     const [modalTitle, setModalTitle] = useState('');
     const [modalContent, setModalContent] = useState('');
 
+    // OTP 설정 스텝 상태
+    const [otpQrUrl, setOtpQrUrl] = useState('');
+    const [otpSecret, setOtpSecret] = useState('');
+    const [otpCode, setOtpCode] = useState('');
+    const [otpError, setOtpError] = useState('');
+    const [otpLoading, setOtpLoading] = useState(false);
+
     // 스텝 관리
     const [currentStep, setCurrentStep] = useState(1);
     const isCompany = activeTab === 'COMPANY_ADMIN' || activeTab === 'COMPANY_USER';
-    const totalSteps = isCompany ? 4 : 3;
+    const totalSteps = isCompany ? 5 : 4; // OTP 설정 스텝 추가
 
     const termsContent = {
         service: "Ex-Ledger 서비스 이용약관\n\n1. 본 서비스는 글로벌 자금 이체 및 환전 관리 솔루션을 제공합니다.\n2. 회원은 본인의 실명으로 가입해야 하며, 타인의 정보를 도용할 수 없습니다.\n3. 불법적인 자금 세탁이나 테러 자금 조달 목적으로 서비스를 이용할 수 없습니다.\n4. 회사는 시스템 점검 등을 위해 서비스를 일시 중단할 수 있습니다.",
@@ -199,7 +209,7 @@ const SignupPage: React.FC = () => {
 
         try {
             const fakeLicenseUuid = activeTab === 'COMPANY_ADMIN' ? 'some-fake-uuid.pdf' : undefined;
-            await http.post('/auth/signup', {
+            const signupRes = await http.post('/auth/signup', {
                 email,
                 password,
                 name,
@@ -209,8 +219,31 @@ const SignupPage: React.FC = () => {
                 licenseFileUuid: fakeLicenseUuid,
                 turnstileToken
             });
+            if (signupRes.data && signupRes.data.data) {
+                const { accessToken, refreshToken } = signupRes.data.data;
+                if (accessToken) setToken(accessToken);
+                if (refreshToken) setRefreshToken(refreshToken);
+            }
+
             toast.success('회원가입이 완료되었습니다. 보안을 위해 OTP 설정을 진행합니다.');
-            navigate('/auth/mfa', { state: { email } });
+
+            // OTP 세팅 정보 로드
+            setOtpLoading(true);
+            setOtpError('');
+            try {
+                const setupRes = await http.post('/auth/mfa/setup', {});
+                if (setupRes.data && setupRes.data.data) {
+                    setOtpQrUrl(setupRes.data.data.qrCodeUrl);
+                    setOtpSecret(setupRes.data.data.secretKey);
+                }
+            } catch (e: any) {
+                setOtpError(e.response?.data?.message || 'OTP 설정 정보를 불러오지 못했습니다.');
+            } finally {
+                setOtpLoading(false);
+            }
+
+            // OTP 설정 스텝으로 이동
+            setCurrentStep(totalSteps);
         } catch (err: any) {
             const msg = err.response?.data?.message || err.response?.data?.data || '회원가입에 실패했습니다.';
             setError(msg);
@@ -219,78 +252,25 @@ const SignupPage: React.FC = () => {
         }
     };
 
-    // 스텝 라벨 정의
-    const getSteps = () => {
-        if (isCompany) {
-            return [
-                { num: 1, label: '기본 정보', icon: User },
-                { num: 2, label: '기업 정보', icon: Building2 },
-                { num: 3, label: '본인 인증', icon: ShieldCheck },
-                { num: 4, label: '약관 동의', icon: FileCheck },
-            ];
-        }
-        return [
-            { num: 1, label: '기본 정보', icon: User },
-            { num: 2, label: '본인 인증', icon: ShieldCheck },
-            { num: 3, label: '약관 동의', icon: FileCheck },
-        ];
-    };
-
-    const steps = getSteps();
-
     // 실제 렌더링 스텝 번호 → 콘텐츠 매핑
     const getStepContent = () => {
-        if (isCompany) return currentStep; // 1=기본, 2=기업, 3=인증, 4=약관
-        // 개인: 1=기본, 2=인증, 3=약관
+        if (isCompany) return currentStep; // 1=기본, 2=기업, 3=인증, 4=약관, 5=OTP
+        // 개인: 1=기본, 2=인증, 3=약관, 4=OTP
         if (currentStep === 1) return 1;
         if (currentStep === 2) return 3; // 인증
         if (currentStep === 3) return 4; // 약관
-        return currentStep;
+        return currentStep; // 4=OTP
     };
 
     const contentStep = getStepContent();
 
     return (
         <>
-            <div className="w-full max-w-xl mx-auto py-12">
+            <div className="w-full max-w-3xl md:max-w-4xl mx-auto py-12 px-4">
             <header className="text-center mb-8">
                 <h2 className="text-5xl font-black text-slate-900 tracking-tight">계정 만들기</h2>
                 <p className="text-slate-400 font-bold text-[14px] uppercase tracking-[0.2em] mt-3">Ex-Ledger 글로벌 네트워크에 합류하세요</p>
             </header>
-
-            {/* 스텝 인디케이터 */}
-            <div className="flex items-center justify-center gap-1 mb-10">
-                {steps.map((step, idx) => (
-                    <React.Fragment key={step.num}>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (step.num < currentStep) setCurrentStep(step.num);
-                            }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[12px] font-black transition-all ${
-                                currentStep === step.num
-                                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-200'
-                                    : currentStep > step.num
-                                    ? 'bg-teal-50 text-teal-600 cursor-pointer hover:bg-teal-100'
-                                    : 'bg-slate-50 text-slate-300 cursor-default'
-                            }`}
-                        >
-                            {currentStep > step.num ? (
-                                <Check size={14} />
-                            ) : (
-                                <step.icon size={14} />
-                            )}
-                            <span className="hidden sm:inline">{step.label}</span>
-                            <span className="sm:hidden">{step.num}</span>
-                        </button>
-                        {idx < steps.length - 1 && (
-                            <div className={`w-6 h-[2px] rounded-full transition-all ${
-                                currentStep > step.num ? 'bg-teal-400' : 'bg-slate-200'
-                            }`} />
-                        )}
-                    </React.Fragment>
-                ))}
-            </div>
 
             {error && (
                 <div className="px-6 py-5 mb-8 text-[14px] font-bold text-red-500 bg-red-50 border border-red-100 rounded-[28px] animate-in fade-in slide-in-from-top-2">
@@ -301,16 +281,16 @@ const SignupPage: React.FC = () => {
             <form onSubmit={handleSignup} noValidate>
                 {/* ====== STEP 1: 기본 정보 + 유형 선택 ====== */}
                 <div className={`transition-all duration-500 ${contentStep === 1 ? 'opacity-100 translate-y-0' : 'opacity-0 absolute -translate-y-4 pointer-events-none'}`}>
-                    <div className="flex p-1.5 bg-slate-100 rounded-[24px] mb-8 shadow-inner">
-                        <button type="button" className={`flex-1 py-3.5 text-[13px] font-black rounded-[18px] transition-all ${activeTab === 'USER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    <div className="flex p-1.5 bg-slate-100 rounded-[24px] mb-8 shadow-inner flex-nowrap overflow-x-auto">
+                        <button type="button" className={`flex-1 py-3.5 text-[13px] font-black rounded-[18px] transition-all whitespace-nowrap ${activeTab === 'USER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             onClick={() => { setActiveTab('USER'); setCurrentStep(1); }}>
                             개인 회원
                         </button>
-                        <button type="button" className={`flex-1 py-3.5 text-[13px] font-black rounded-[18px] transition-all ${activeTab === 'COMPANY_USER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        <button type="button" className={`flex-1 py-3.5 text-[13px] font-black rounded-[18px] transition-all whitespace-nowrap ${activeTab === 'COMPANY_USER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             onClick={() => { setActiveTab('COMPANY_USER'); setCurrentStep(1); }}>
                             기업 멤버
                         </button>
-                        <button type="button" className={`flex-1 py-3.5 text-[13px] font-black rounded-[18px] transition-all ${activeTab === 'COMPANY_ADMIN' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        <button type="button" className={`flex-1 py-3.5 text-[13px] font-black rounded-[18px] transition-all whitespace-nowrap ${activeTab === 'COMPANY_ADMIN' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             onClick={() => { setActiveTab('COMPANY_ADMIN'); setCurrentStep(1); }}>
                             기업 관리자
                         </button>
@@ -473,6 +453,63 @@ const SignupPage: React.FC = () => {
                     </div>
                 </div>
 
+                {/* ====== STEP: OTP 설정 ====== */}
+                <div className={`transition-all duration-500 ${contentStep === 5 || (!isCompany && contentStep === 4) ? 'opacity-100 translate-y-0' : 'opacity-0 absolute -translate-y-4 pointer-events-none'}`}>
+                    <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                                <KeyRound size={22} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-slate-800">2단계 인증(OTP) 등록</h3>
+                                <p className="text-[12px] font-bold text-slate-400">Google Authenticator로 QR을 스캔하고 6자리 코드를 입력하세요.</p>
+                            </div>
+                        </div>
+
+                        {otpError && (
+                            <div className="px-4 py-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 text-sm font-bold flex items-center gap-2">
+                                <ShieldAlert size={16} /> {otpError}
+                            </div>
+                        )}
+
+                        <div className="flex justify-center bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                            {otpLoading ? (
+                                <div className="w-[150px] h-[150px] bg-slate-100 rounded-lg animate-pulse" />
+                            ) : otpQrUrl ? (
+                                <div className="p-2 border-4 border-slate-100 rounded-lg bg-white">
+                                    <QRCodeSVG value={otpQrUrl} size={160} level="M" />
+                                </div>
+                            ) : (
+                                <div className="w-[150px] h-[150px] bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-400 text-xs">
+                                    QR LOAD FAILED
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-100 py-2 px-3 rounded-lg font-mono">
+                            <KeyRound size={14} />
+                            <span>{otpSecret || "..."}</span>
+                        </div>
+
+                        <div className="space-y-4">
+                            <label className="block text-center text-sm font-bold text-slate-700">앱에 표시된 6자리 코드</label>
+                            <OtpInput
+                                value={otpCode}
+                                onChange={setOtpCode}
+                                onComplete={async (code) => {
+                                    try {
+                                        await http.post('/auth/mfa/enable', { code });
+                                        toast.success('구글 OTP 인증 설정이 완료되었습니다.');
+                                        navigate('/');
+                                    } catch (err: any) {
+                                        setOtpError(err.response?.data?.message || 'OTP 코드 검증에 실패했습니다.');
+                                    }
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 {/* 하단 네비게이션 버튼 */}
                 <div className="flex gap-3 mt-8">
                     {currentStep > 1 && (
@@ -481,15 +518,32 @@ const SignupPage: React.FC = () => {
                             <ArrowLeft size={18} /> 이전
                         </button>
                     )}
-                    {currentStep < totalSteps ? (
+                    {currentStep < totalSteps - 1 ? (
                         <button type="button" onClick={handleNext}
                             className="flex-[2] py-5 bg-slate-900 text-white rounded-[24px] font-black text-[15px] hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-[0.98] flex items-center justify-center gap-2">
                             다음 <ArrowRight size={18} />
                         </button>
-                    ) : (
+                    ) : currentStep === totalSteps - 1 ? (
                         <button type="submit"
                             className="flex-[2] py-5 bg-teal-600 text-white rounded-[24px] font-black text-[15px] hover:bg-teal-700 transition-all shadow-xl shadow-teal-100 active:scale-[0.98] flex items-center justify-center gap-2">
                             <Check size={18} /> {activeTab === 'COMPANY_ADMIN' ? '기업 등록 완료' : '회원가입 완료'}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                try {
+                                    await http.post('/auth/mfa/enable', { code: otpCode });
+                                    toast.success('구글 OTP 인증 설정이 완료되었습니다.');
+                                    navigate('/');
+                                } catch (err: any) {
+                                    setOtpError(err.response?.data?.message || 'OTP 코드 검증에 실패했습니다.');
+                                }
+                            }}
+                            className="flex-[2] py-5 bg-teal-600 text-white rounded-[24px] font-black text-[15px] hover:bg-teal-700 transition-all shadow-xl shadow-teal-100 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+                            disabled={!otpCode || otpCode.length !== 6}
+                        >
+                            <Check size={18} /> OTP 설정 완료
                         </button>
                     )}
                 </div>

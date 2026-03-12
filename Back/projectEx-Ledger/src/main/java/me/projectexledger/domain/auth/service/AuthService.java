@@ -49,7 +49,7 @@ public class AuthService {
     private final CompanyRepository companyRepository;
 
     @Transactional
-    public Long signup(SignupRequest request) {
+    public TokenResponse signup(SignupRequest request) {
         if (!turnstileService.verifyToken(request.getTurnstileToken())) {
             throw new IllegalArgumentException("Turnstile 검증에 실패했습니다.");
         }
@@ -114,7 +114,19 @@ public class AuthService {
             }
         }
 
-        return memberRepository.save(member).getId();
+        memberRepository.save(member);
+
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                request.getEmail(), request.getPassword());
+        Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+
+        String jwt = jwtTokenProvider.createToken(authentication);
+        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+        redisTemplate.opsForValue().set("RT:" + authentication.getName(), refreshToken, Duration.ofDays(7));
+
+        sseEmitters.sendLoginAlert(request.getEmail(), "새로운 기기에서 로그인이 감지되었습니다.");
+
+        return new TokenResponse(jwt, refreshToken, "Bearer", false, false);
     }
 
     @Transactional

@@ -73,6 +73,8 @@ const CorporateWallet: React.FC = () => {
 
   // 1. 계좌가 없을 때 보여줄 "발급 신청" 화면 (규칙에 어긋나거나 비어있는 경우)
   if (!corpAccount || (!corpAccount.startsWith("EX-2003") && !corpAccount.includes("2003"))) {
+    // 기업 관리자만 계좌 개설 가능
+    const isCompanyAdmin = profile?.role === "ROLE_COMPANY_ADMIN";
     return (
       <>
         <div className="max-w-4xl px-6 py-32 mx-auto space-y-12 text-center animate-in fade-in">
@@ -83,27 +85,36 @@ const CorporateWallet: React.FC = () => {
             <h1 className="text-4xl italic font-black tracking-tighter uppercase text-slate-900">
               Corporate Account Activation
             </h1>
-            <p className="max-w-md mx-auto font-bold leading-relaxed text-slate-500">
-              귀하의 기업 정보가 확인되었습니다. <br />
-              정산 데이터 생성을 위한 <strong>기업 전용 마스터 계좌</strong>를
-              발급해 주세요.
-            </p>
+            {isCompanyAdmin ? (
+              <p className="max-w-md mx-auto font-bold leading-relaxed text-slate-500">
+                귀하의 기업 정보가 확인되었습니다. <br />
+                정산 데이터 생성을 위한 <strong>기업 전용 마스터 계좌</strong>를
+                발급해 주세요.
+              </p>
+            ) : (
+              <p className="max-w-md mx-auto font-bold leading-relaxed text-slate-500">
+                기업 전용 계좌가 아직 없습니다. <br />
+                <strong>기업 관리자</strong>만 계좌 개설이 가능합니다. 관리자에게 문의해 주세요.
+              </p>
+            )}
           </div>
 
-          <button
-            onClick={handleActivateCorporateAccount}
-            disabled={isActivating}
-            className="group relative px-12 py-6 bg-slate-900 text-white rounded-[24px] font-black text-sm uppercase tracking-[0.2em] shadow-2xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-          >
-            {isActivating ? (
-              <Loader2 className="mx-auto animate-spin" size={24} />
-            ) : (
-              <span className="flex items-center gap-3">
-                <Sparkles size={18} className="text-indigo-400" /> 기업 계좌
-                즉시 발급하기
-              </span>
-            )}
-          </button>
+          {isCompanyAdmin && (
+            <button
+              onClick={handleActivateCorporateAccount}
+              disabled={isActivating}
+              className="group relative px-12 py-6 bg-slate-900 text-white rounded-[24px] font-black text-sm uppercase tracking-[0.2em] shadow-2xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+              {isActivating ? (
+                <Loader2 className="mx-auto animate-spin" size={24} />
+              ) : (
+                <span className="flex items-center gap-3">
+                  <Sparkles size={18} className="text-indigo-400" /> 기업 계좌
+                  즉시 발급하기
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </>
     );
