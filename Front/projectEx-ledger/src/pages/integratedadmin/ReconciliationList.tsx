@@ -55,7 +55,7 @@ const ReconciliationList: React.FC = () => {
   const testDropdownRef = useRef<HTMLDivElement>(null);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
 
-  // 🌟 [수정] 송금 실패와 반려 처리를 완벽하게 분리
+  // 🌟 [수정] 반려 처리를 포함한 한국어 맵핑
   const statusKoreanMap: { [key: string]: string } = {
     PENDING: "정산 중",
     COMPLETED: "정산 완료",
@@ -108,6 +108,19 @@ const ReconciliationList: React.FC = () => {
     setIsProcessing(true);
     await fetchReconciliationData();
     setIsProcessing(false);
+  };
+
+  const handleReprocess = async (id: number) => {
+    if (!window.confirm("이 반려 건을 다시 정산 중 상태로 되돌리시겠습니까?")) return;
+    try {
+      const response: any = await http.post(`/admin/settlements/${id}/reprocess`);
+      if (response && response.data && response.data.status === "SUCCESS") {
+        toast.success("해당 건이 다시 정산 중 상태가 되었습니다.");
+        await fetchReconciliationData();
+      }
+    } catch (error) {
+      toast.error("처리에 실패했습니다.");
+    }
   };
 
   const handleCreateTestData = async () => {
@@ -176,13 +189,13 @@ const ReconciliationList: React.FC = () => {
             정산 중
           </span>
         );
-      case "FAILED":
+      case "FAILED": // 🌟 [수정] 송금 실패 빨간색 배지
         return (
           <span className="px-3 py-1 text-xs font-bold text-red-700 bg-red-100 rounded-full">
             송금 실패
           </span>
         );
-      case "REJECTED": // 🌟 [수정] 반려 처리는 장미색으로 구분
+      case "REJECTED": // 🌟 [수정] 반려 처리 장미색 배지
         return (
           <span className="px-3 py-1 text-xs font-bold text-rose-700 bg-rose-100 rounded-full">
             반려 처리
@@ -414,7 +427,6 @@ const ReconciliationList: React.FC = () => {
                   <option value="PENDING">정산 중</option>
                   <option value="COMPLETED">정산 완료</option>
                   <option value="FAILED">송금 실패</option>
-                  {/* 🌟 [수정] 테스트 주입 옵션에 반려 처리 추가 */}
                   <option value="REJECTED">반려 처리</option>
                 </select>
                 <button
@@ -547,12 +559,33 @@ const ReconciliationList: React.FC = () => {
                         {getStatusBadge(row.status)}
                       </td>
                       <td className="px-2 py-5 text-center">
-                        <button
-                          onClick={() => handleDetailClick(row)}
-                          className="px-4 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded hover:bg-teal-100 transition whitespace-nowrap"
-                        >
-                          조회
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          {/* 🌟 [수정] 배타적 로직: FAILED일 땐 조회 대신 빨간색 송금 관리 버튼만 노출 */}
+                          {row.status === "FAILED" ? (
+                            <button
+                              onClick={() => navigate("/remittance")}
+                              className="px-3 py-1.5 text-xs font-black text-white bg-red-600 rounded hover:bg-red-700 transition shadow-sm whitespace-nowrap"
+                            >
+                              송금 관리
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleDetailClick(row)}
+                              className="px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded hover:bg-teal-100 transition whitespace-nowrap"
+                            >
+                              조회
+                            </button>
+                          )}
+
+                          {row.status === "REJECTED" && (
+                            <button
+                              onClick={() => handleReprocess(row.id)}
+                              className="px-3 py-1.5 text-xs font-black text-white bg-indigo-600 rounded hover:bg-indigo-700 transition shadow-sm whitespace-nowrap"
+                            >
+                              정산 재개
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
