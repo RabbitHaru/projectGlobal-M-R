@@ -1,69 +1,76 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import http from '../../config/http';
 import { toast } from 'sonner';
 import { Clock, RefreshCw } from 'lucide-react';
-import { logout } from '../../config/auth';
+import { getRefreshToken, getToken, logout, parseJwt, setRefreshToken, setToken } from '../../config/auth';
 
 export const MfaHeaderTimer: React.FC = () => {
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
-    const [isActive, setIsActive] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const fetchSessionStatus = useCallback(async () => {
-        try {
-            const response = await http.get('/auth/mfa/session');
-            if (response.data && response.data.data) {
-                const { active, remainingSeconds } = response.data.data;
-                setIsActive(active);
-                if (active) {
-                    setTimeLeft(remainingSeconds);
-                } else {
-                    setTimeLeft(null);
-                }
+    const computeJwtRemainingSeconds = useMemo(() => {
+        return () => {
+            const token = getToken();
+            if (!token) return null;
+            const payload = parseJwt(token);
+            const authorities: string = payload?.auth || '';
+            const roles = authorities.split(',').filter(Boolean);
+            const isIntegratedAdmin = roles.includes('ROLE_INTEGRATED_ADMIN');
+            const exp = payload?.exp;
+            if (typeof exp !== 'number') return null;
+            const diffMs = exp * 1000 - Date.now();
+            const diffSec = Math.floor(diffMs / 1000);
+            const remaining = diffSec > 0 ? diffSec : 0;
+            if (!isIntegratedAdmin) {
+                return Math.min(remaining, 15 * 60);
             }
-        } catch (error) {
-            console.error('Failed to fetch MFA session status', error);
-        }
+            return remaining;
+        };
     }, []);
 
     useEffect(() => {
-        fetchSessionStatus();
-        const interval = setInterval(fetchSessionStatus, 30000); 
-        return () => clearInterval(interval);
-    }, [fetchSessionStatus]);
+        const tick = () => {
+            const remaining = computeJwtRemainingSeconds();
+            setTimeLeft(remaining);
+            if (remaining === 0) {
+                logout();
+            }
+        };
 
-    useEffect(() => {
-        if (timeLeft === null || timeLeft <= 0) return;
-
-        const timer = setInterval(() => {
-            setTimeLeft((prev) => {
-                if (prev !== null && prev > 1) return prev - 1;
-                if (prev === 1) {
-                    console.log("MFA Session Expired. Logging out...");
-                    logout();
-                }
-                return 0;
-            });
-        }, 1000);
-
+        tick();
+        const timer = setInterval(tick, 1000);
         return () => clearInterval(timer);
-    }, [timeLeft]);
+    }, [computeJwtRemainingSeconds]);
 
     const handleExtend = async () => {
         if (isRefreshing) return;
         setIsRefreshing(true);
         try {
-            await http.post('/auth/mfa/session/extend');
-            toast.success('보안 세션이 15분 연장되었습니다.');
-            await fetchSessionStatus();
+            const rt = getRefreshToken();
+            if (!rt) {
+                logout();
+                return;
+            }
+
+            const { data } = await axios.post(`${http.defaults.baseURL}/auth/refresh`, { refreshToken: rt });
+            if (data && data.data) {
+                const { accessToken, refreshToken } = data.data;
+                if (accessToken) setToken(accessToken);
+                if (refreshToken) setRefreshToken(refreshToken);
+                toast.success('세션이 갱신되었습니다.');
+            } else {
+                logout();
+            }
         } catch (error: any) {
-            toast.error(error.response?.data?.message || '세션 연장에 실패했습니다.');
+            toast.error(error.response?.data?.message || '세션 갱신에 실패했습니다.');
+            logout();
         } finally {
             setIsRefreshing(false);
         }
     };
 
-    if (!isActive || timeLeft === null) return null;
+    if (timeLeft === null) return null;
 
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
@@ -90,7 +97,7 @@ export const MfaHeaderTimer: React.FC = () => {
             <button 
                 onClick={handleExtend}
                 disabled={isRefreshing}
-                title="시간 연장"
+                title="세션 갱신"
                 className={`p-1 rounded-lg transition-all active:scale-90 disabled:opacity-50 ${
                     isWarning 
                     ? 'text-red-500 hover:text-red-700 hover:bg-white' 
