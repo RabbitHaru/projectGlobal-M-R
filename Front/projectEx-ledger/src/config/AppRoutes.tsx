@@ -74,7 +74,7 @@ const AppRoutes = () => {
 
         {/* 3. 보안/인증 필요 라우트 영역 */}
         <Route element={<ProtectedRoute />}>
-            <Route element={<ProtectedRoute allowedRoles={["ROLE_USER", "USER", "ROLE_COMPANY_USER", "COMPANY_USER", "ROLE_COMPANY_ADMIN", "COMPANY_ADMIN"]} />}>
+            <Route element={<ProtectedRoute allowedRoles={["ROLE_USER", "USER", "ROLE_COMPANY_USER", "COMPANY_USER", "ROLE_COMPANY_ADMIN", "COMPANY_ADMIN", "ROLE_INTEGRATED_ADMIN", "INTEGRATED_ADMIN"]} />}>
               <Route path="/seller/dashboard" element={<SellerDashboard />} />
               <Route path="/company/join" element={<CompanyJoin />} />
               <Route path="/list" element={<MySettlementList />} />

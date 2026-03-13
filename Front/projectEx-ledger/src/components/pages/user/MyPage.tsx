@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { UserCircle, ShieldCheck, Key, RefreshCw, CheckCircle2, AlertCircle, Building2, UserMinus, LogOut } from "lucide-react";
+import { UserCircle, ShieldCheck, Key, RefreshCw, CheckCircle2, AlertCircle, Building2, UserMinus, LogOut, Shield, BarChart3, Users, CheckSquare } from "lucide-react";
 import http from "../../../config/http";
 import { useToast } from "../../notification/ToastProvider";
 import { QRCodeSVG } from "qrcode.react";
@@ -31,7 +31,10 @@ const MyPage: React.FC = () => {
     const [otpCode, setOtpCode] = useState("");
 
     // 탭 상태 관리
-    const [activeTab, setActiveTab] = useState<'security' | 'corporate' | 'banking'>('security');
+    const [activeTab, setActiveTab] = useState<'security' | 'corporate' | 'banking' | 'system'>('security');
+
+    // 관리자 전용 요약 데이터
+    const [adminSummary, setAdminSummary] = useState<any>(null);
 
     // 회원탈퇴 확인 모달 상태
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -73,12 +76,29 @@ const MyPage: React.FC = () => {
             setAccountHolder(data.accountHolder || "");
             setAllowNoti(data.allowNotifications);
 
+            // 관리자라면 요약 데이터 가져오기
+            if (data.role === 'ROLE_INTEGRATED_ADMIN') {
+                setActiveTab('system'); // 관리자는 시스템 탭 우선
+                fetchAdminSummary();
+            }
+
             // 기업 유저인데 승인 안됐으면 기업 탭을 우선으로 보여줄 수도 있음 (선택 사항)
             if (!data.isApproved && (data.role === 'ROLE_COMPANY_ADMIN' || data.role === 'ROLE_COMPANY_USER')) {
                 setActiveTab('corporate');
             }
         } catch (err) {
             showToast("프로필 정보를 불러오는데 실패했습니다.", "ERROR");
+        }
+    };
+
+    const fetchAdminSummary = async () => {
+        try {
+            const response = await http.get("/admin/settlements/dashboard?months=3");
+            if (response.data.status === 'SUCCESS') {
+                setAdminSummary(response.data.data);
+            }
+        } catch (err) {
+            console.error("관리자 요약 정보 로드 실패:", err);
         }
     };
 
@@ -233,14 +253,25 @@ const MyPage: React.FC = () => {
     const isCompanyPending = isCompanyRole && profile?.isApproved === false;
 
     const tabs = [
+        { 
+            id: 'system', 
+            label: '시스템 관리', 
+            icon: Shield, 
+            show: profile?.role === 'ROLE_INTEGRATED_ADMIN' 
+        },
         { id: 'security', label: '보안 및 설정', icon: ShieldCheck },
         { 
             id: 'corporate', 
             label: '기업 정보', 
             icon: Building2, 
-            show: profile?.role !== 'ROLE_USER' || !!profile?.businessNumber 
+            show: (profile?.role !== 'ROLE_USER' && profile?.role !== 'ROLE_INTEGRATED_ADMIN') || !!profile?.businessNumber 
         },
-        { id: 'banking', label: '결제 및 계좌', icon: Key, show: !isCompanyPending },
+        { 
+            id: 'banking', 
+            label: '결제 및 계좌', 
+            icon: Key, 
+            show: !isCompanyPending && profile?.role !== 'ROLE_INTEGRATED_ADMIN' 
+        },
     ].filter(tab => tab.show !== false);
 
     // 개인 가상계좌 정보
@@ -258,6 +289,11 @@ const MyPage: React.FC = () => {
                 <div>
                     <div className="flex gap-4 items-center">
                         <h1 className="text-5xl font-black tracking-tighter text-slate-900">{profile?.name || "사용자"}</h1>
+                        {profile?.role === "ROLE_INTEGRATED_ADMIN" && (
+                            <div className="px-4 py-1.5 bg-slate-900 text-teal-400 rounded-full text-[12px] font-black uppercase tracking-[0.2em] border border-slate-800 shadow-lg shadow-slate-200">
+                                Site Admin
+                            </div>
+                        )}
                         {profile?.role === "ROLE_COMPANY_ADMIN" ? (
                             <div className={`px-4 py-1.5 rounded-full text-[12px] font-black uppercase tracking-wider ${
                                 profile?.adminApprovalStatus === 'APPROVED' 
@@ -267,36 +303,39 @@ const MyPage: React.FC = () => {
                                 : "bg-amber-50 text-amber-600 border border-amber-100 animate-pulse"
                             }`}>
                                 {profile?.adminApprovalStatus === 'APPROVED' ? "사업자 승인됨" : 
-                                 profile?.adminApprovalStatus === 'REJECTED' ? "승인 반려됨" : "사업자 심사 중"}
+                                 profile?.adminApprovalStatus === 'REJECTED' ? "승인 거절됨" : "승인 대기중"}
                             </div>
                         ) : profile?.role === "ROLE_COMPANY_USER" ? (
-                            <div className={`px-4 py-1.5 rounded-full text-[12px] font-black uppercase tracking-wider ${
-                                profile?.isApproved 
-                                ? "bg-teal-50 text-teal-600 border border-teal-100" 
-                                : "bg-amber-50 text-amber-600 border border-amber-100 animate-pulse"
-                            }`}>
-                                {profile?.isApproved ? "소속 승인됨" : "소속 승인 대기"}
+                            <div className="px-4 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-full text-[12px] font-black uppercase tracking-wider">
+                                {profile?.isApproved ? "기업 실무자" : "승인 대기중"}
+                            </div>
+                        ) : profile?.role === "ROLE_USER" ? (
+                            <div className="px-4 py-1.5 bg-slate-50 text-slate-400 border border-slate-100 rounded-full text-[12px] font-black uppercase tracking-wider">
+                                개인 회원
                             </div>
                         ) : null}
                     </div>
-                    <p className="flex gap-2 items-center mt-2 text-sm font-bold tracking-widest uppercase text-slate-400">
-                        {profile?.role.replace("ROLE_", "").replace("_", " ")} | {profile?.email}
-                        {profile?.realName && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 bg-teal-500/10 text-teal-500 rounded text-[10px] font-black lowercase tracking-normal">
-                                <CheckCircle2 size={10} />
-                                실명인증: {profile.realName}
-                            </span>
-                        )}
-                    </p>
+                    <p className="mt-2 text-lg font-bold text-slate-400">{profile?.email}</p>
                 </div>
+                {profile?.role === 'ROLE_INTEGRATED_ADMIN' && (
+                    <div className="ml-auto hidden md:block">
+                        <button 
+                            onClick={() => navigate('/dashboard')}
+                            className="px-8 py-5 bg-teal-600 text-white rounded-[32px] font-black text-[14px] hover:bg-teal-700 transition-all shadow-xl shadow-teal-100 flex items-center gap-3"
+                        >
+                            <Shield size={20} />
+                            통합 통합 대시보드 바로가기
+                        </button>
+                    </div>
+                )}
             </header>
 
-            {/* ★ 회원 탈퇴 유예 기간 안내 배너 */}
-            {profile?.withdrawalRequestedAt && (
-                <div className="p-8 bg-rose-50 border border-rose-100 rounded-[40px] flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-700">
-                    <div className="flex gap-6 items-center">
-                        <div className="p-5 text-rose-500 bg-white rounded-3xl shadow-sm">
-                            <AlertTriangle size={32} />
+            {/* 탈퇴 중 배너 (일반 회원 전용) */}
+            {profile?.withdrawalRequestedAt && profile?.role !== 'ROLE_INTEGRATED_ADMIN' && (
+                <div className="p-10 bg-rose-50 border-2 border-rose-100 rounded-[48px] flex flex-col md:flex-row items-center justify-between gap-8 animate-in zoom-in duration-500">
+                    <div className="flex items-center gap-6">
+                        <div className="p-6 bg-white text-rose-500 rounded-3xl shadow-xl shadow-rose-100 animate-pulse">
+                            <AlertTriangle size={36} />
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-xl font-black tracking-tight text-rose-900">회원 탈퇴가 대기 중입니다</h3>
@@ -337,6 +376,91 @@ const MyPage: React.FC = () => {
             </div>
 
             <div className="duration-500 animate-in fade-in slide-in-from-bottom-4">
+                {activeTab === 'system' && profile?.role === 'ROLE_INTEGRATED_ADMIN' && (
+                    <div className="space-y-12">
+                        {/* 관리자 요약 통계 */}
+                        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm space-y-4">
+                                <div className="flex justify-between items-start">
+                                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                                        <BarChart3 size={24} />
+                                    </div>
+                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">3 Months</span>
+                                </div>
+                                <div>
+                                    <p className="text-[14px] font-bold text-slate-400">누적 정산 금액</p>
+                                    <h3 className="text-3xl font-black text-slate-900 mt-1">
+                                        {adminSummary?.totalPaymentAmount?.toLocaleString() || "0"}
+                                        <span className="text-lg ml-1 font-bold text-slate-400">원</span>
+                                    </h3>
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm space-y-4">
+                                <div className="flex justify-between items-start">
+                                    <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl">
+                                        <Users size={24} />
+                                    </div>
+                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Platform</span>
+                                </div>
+                                <div>
+                                    <p className="text-[14px] font-bold text-slate-400">총 정산 처리</p>
+                                    <h3 className="text-3xl font-black text-slate-900 mt-1">
+                                        {adminSummary?.totalRemittanceCount || "0"}
+                                        <span className="text-lg ml-1 font-bold text-slate-400">건</span>
+                                    </h3>
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm space-y-4">
+                                <div className="flex justify-between items-start">
+                                    <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl">
+                                        <AlertCircle size={24} />
+                                    </div>
+                                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Action Needed</span>
+                                </div>
+                                <div>
+                                    <p className="text-[14px] font-bold text-slate-400">조치 필요 항목</p>
+                                    <h3 className="text-3xl font-black text-rose-600 mt-1">
+                                        {(adminSummary?.failedRemittanceCount || 0) + (adminSummary?.rejectedRemittanceCount || 0)}
+                                        <span className="text-lg ml-1 font-bold text-rose-400">건</span>
+                                    </h3>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* 관리자 단축 메뉴 */}
+                        <section className="bg-slate-50/50 p-12 rounded-[56px] border border-slate-100 space-y-10">
+                            <div className="flex gap-4 items-center">
+                                <div className="p-4 text-slate-900 bg-white rounded-2xl shadow-sm">
+                                    <CheckSquare size={24} />
+                                </div>
+                                <h2 className="text-2xl font-black tracking-tight text-slate-800">주요 관리 대시보드</h2>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {[
+                                    { label: '회원 관리', path: '/admin/members', icon: Users, color: 'text-blue-500' },
+                                    { label: '기업 심사', path: '/admin/companies/review', icon: Building2, color: 'text-indigo-500' },
+                                    { label: '정산 승인', path: '/admin/approvals', icon: CheckSquare, color: 'text-teal-500' },
+                                    { label: '시스템 로그', path: '/admin/logs', icon: Shield, color: 'text-slate-500' },
+                                ].map((menu, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => navigate(menu.path)}
+                                        className="p-8 bg-white rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group text-left space-y-4"
+                                    >
+                                        <div className={`p-4 rounded-2xl bg-slate-50 group-hover:bg-white transition-colors ${menu.color}`}>
+                                            <menu.icon size={24} />
+                                        </div>
+                                        <p className="text-[15px] font-black text-slate-800">{menu.label}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+                )}
+
                 {activeTab === 'security' && (
                     <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
                         {/* 비밀번호 변경 섹션 */}
